@@ -16,7 +16,7 @@ pub enum Authentication {
 impl fmt::Debug for Authentication {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Authentication::Bearer { token } => {
+            Authentication::Bearer { .. } => {
                 write!(f, "BearerAuthentication {{ token: ****** }}")
             }
             Authentication::Basic { username, .. } => {

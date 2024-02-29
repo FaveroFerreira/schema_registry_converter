@@ -55,7 +55,7 @@ impl SchemaRegistryClient for CachedSchemaRegistryClient {
         version: Version,
     ) -> Result<Schema, SchemaRegistryError> {
         if let Some(cached) = self.subject_cache.get(subject) {
-            return self.get_schema_by_id(cached.value().clone()).await;
+            return self.get_schema_by_id(*cached.value()).await;
         }
 
         let mut calls = Vec::with_capacity(self.urls.len());
