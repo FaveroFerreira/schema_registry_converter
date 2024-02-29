@@ -1,4 +1,14 @@
 mod client;
 mod config;
 mod error;
-mod schema;
+mod types;
+
+mod prelude {
+    pub use crate::client::cached::CachedSchemaRegistryClient;
+    pub use crate::client::SchemaRegistryClient;
+    pub use crate::config::SchemaRegistryConfig;
+    pub use crate::error::SchemaRegistryError;
+    pub use crate::types::{Schema, Version};
+}
+
+pub use prelude::*;
