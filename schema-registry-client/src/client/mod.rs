@@ -13,5 +13,8 @@ pub trait SchemaRegistryClient {
         subject: &str,
         version: Version,
     ) -> Result<Schema, SchemaRegistryError>;
+
     async fn get_schema_by_id(&self, id: u32) -> Result<Schema, SchemaRegistryError>;
+
+    // TODO: add stuff to register schema
 }

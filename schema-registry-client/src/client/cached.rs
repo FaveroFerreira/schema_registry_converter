@@ -16,22 +16,22 @@ const APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON: &str = "application/vnd.schemareg
 pub struct CachedSchemaRegistryClient {
     urls: Arc<[String]>,
     http: Client,
-    cache: DashMap<u32, Schema>,
-    subject_id_cache: DashMap<String, u32>,
+    id_cache: DashMap<u32, Schema>,
+    subject_cache: DashMap<String, u32>,
 }
 
 impl CachedSchemaRegistryClient {
     pub fn from_conf(conf: SchemaRegistryConfig) -> Result<Self, SchemaRegistryError> {
         let urls = Arc::from(conf.urls.clone());
         let http = util::build_http_client(&conf)?;
-        let cache = DashMap::new();
-        let subject_id_cache = DashMap::new();
+        let id_cache = DashMap::new();
+        let subject_cache = DashMap::new();
 
         Ok(Self {
             http,
             urls,
-            cache,
-            subject_id_cache,
+            id_cache,
+            subject_cache,
         })
     }
 
@@ -54,8 +54,8 @@ impl SchemaRegistryClient for CachedSchemaRegistryClient {
         subject: &str,
         version: Version,
     ) -> Result<Schema, SchemaRegistryError> {
-        if let Some(id) = self.subject_id_cache.get(subject) {
-            return self.get_schema_by_id(id.value().clone()).await;
+        if let Some(cached) = self.subject_cache.get(subject) {
+            return self.get_schema_by_id(cached.value().clone()).await;
         }
 
         let mut calls = Vec::with_capacity(self.urls.len());
@@ -81,7 +81,7 @@ impl SchemaRegistryClient for CachedSchemaRegistryClient {
         }
 
         let subject = self.exec_calls(calls).await?;
-        self.subject_id_cache.insert(subject.subject, subject.id);
+        self.subject_cache.insert(subject.subject, subject.id);
 
         let schema = Schema {
             schema_type: subject.schema_type,
@@ -92,8 +92,8 @@ impl SchemaRegistryClient for CachedSchemaRegistryClient {
     }
 
     async fn get_schema_by_id(&self, id: u32) -> Result<Schema, SchemaRegistryError> {
-        if let Some(schema) = self.cache.get(&id) {
-            return Ok(schema.value().clone());
+        if let Some(cached) = self.id_cache.get(&id) {
+            return Ok(cached.value().clone());
         }
 
         let mut calls = Vec::with_capacity(self.urls.len());
