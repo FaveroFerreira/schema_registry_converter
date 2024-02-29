@@ -3,7 +3,6 @@ use std::fmt;
 use std::io::Write;
 use std::str::FromStr;
 
-use crate::client::util;
 use base64::prelude::BASE64_STANDARD;
 use base64::write::EncoderWriter;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
@@ -22,7 +21,7 @@ pub fn build_auth_headers(
 }
 
 pub fn bearer_auth(token: &str) -> Result<(HeaderName, HeaderValue), ConfigurationError> {
-    let header_name = HeaderName::from(header::AUTHORIZATION);
+    let header_name = header::AUTHORIZATION;
     let mut header = HeaderValue::from_str(&format!("Bearer {}", token))?;
     header.set_sensitive(true);
     Ok((header_name, header))
@@ -46,7 +45,7 @@ where
         }
     }
 
-    let header_name = HeaderName::from(header::AUTHORIZATION);
+    let header_name = header::AUTHORIZATION;
     let mut header_value = HeaderValue::from_bytes(&buf)?;
     header_value.set_sensitive(true);
     Ok((header_name, header_value))
@@ -77,15 +76,11 @@ pub fn build_http_client(conf: &SchemaRegistryConfig) -> Result<Client, Configur
     }
 
     if let Some(auth) = &conf.authentication {
-        let (header_name, header_value) = build_auth_headers(&auth)?;
+        let (header_name, header_value) = build_auth_headers(auth)?;
         default_headers.insert(header_name, header_value);
     }
 
-    let proxy = conf
-        .proxy
-        .as_ref()
-        .map(|proxy| build_proxy(&proxy))
-        .transpose()?;
+    let proxy = conf.proxy.as_ref().map(build_proxy).transpose()?;
 
     let mut client_builder = Client::builder().default_headers(default_headers);
 

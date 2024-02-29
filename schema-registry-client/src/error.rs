@@ -36,5 +36,8 @@ pub enum SchemaRegistryError {
     Configuration(#[from] ConfigurationError),
 
     #[error("Http client error: {source}")]
-    HttpClient { source: reqwest::Error },
+    HttpClient {
+        #[from]
+        source: reqwest::Error,
+    },
 }
