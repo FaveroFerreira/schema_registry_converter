@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use byteorder::{BigEndian, ReadBytesExt};
 use serde::de::DeserializeOwned;
 
+use crate::error::{AvroDeserializationError, ErrorMessage};
 use schema_registry_client::SchemaRegistryClient;
 use schema_registry_serde::SchemaRegistryDeserializer;
 
@@ -24,7 +25,9 @@ pub struct SchemaRegistryAvroDeserializer {
 
 #[async_trait]
 impl SchemaRegistryDeserializer for SchemaRegistryAvroDeserializer {
-    async fn deserialize<T>(&self, data: Option<&[u8]>) -> Result<T, ()>
+    type Error = AvroDeserializationError;
+
+    async fn deserialize<T>(&self, data: Option<&[u8]>) -> Result<T, Self::Error>
     where
         T: DeserializeOwned,
     {
@@ -33,33 +36,36 @@ impl SchemaRegistryDeserializer for SchemaRegistryAvroDeserializer {
         let schema = self
             .schema_registry_client
             .get_schema_by_id(extracted.schema_id)
-            .await
-            .map_err(|_| ())?;
+            .await?;
 
         // maybe cache a parsed schema?
-        let schema = AvroSchema::parse_str(&schema.schema).map_err(|_| ())?;
+        let schema = AvroSchema::parse_str(&schema.schema)?;
         let mut reader = Cursor::new(extracted.payload);
 
-        let avro_value =
-            apache_avro::from_avro_datum(&schema, &mut reader, None).map_err(|_| ())?;
+        let avro_value = apache_avro::from_avro_datum(&schema, &mut reader, None)?;
 
-        let t = apache_avro::from_value(&avro_value).map_err(|_| ())?;
+        let t = apache_avro::from_value(&avro_value)?;
 
         Ok(t)
     }
 }
 
-fn extract_id_and_payload(data: Option<&[u8]>) -> Result<Extracted, ()> {
+fn extract_id_and_payload(data: Option<&[u8]>) -> Result<Extracted<'_>, AvroDeserializationError> {
     match data {
-        None => Err(()),
+        None => Err(ErrorMessage::new("empty payload").into()),
         Some(p) if p.len() > 4 && p[0] == AVRO_MAGIC_BYTE => {
             let mut buf = &p[AVRO_ENCODED_SCHEMA_ID_RANGE];
-            let id = buf.read_u32::<BigEndian>().map_err(|_| ())?;
+            let id = buf.read_u32::<BigEndian>().map_err(|e| {
+                ErrorMessage::new(format!(
+                    "failed to read schema id from payload bytes: {}",
+                    e
+                ))
+            })?;
             Ok(Extracted {
                 schema_id: id,
                 payload: &p[AVRO_ENCODED_SCHEMA_ID_RANGE.end..],
             })
         }
-        _ => Err(()),
+        _ => Err(ErrorMessage::new("invalid payload").into()),
     }
 }

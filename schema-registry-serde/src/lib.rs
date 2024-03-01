@@ -1,3 +1,5 @@
+use std::error::Error as StdError;
+
 use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
@@ -11,26 +13,30 @@ pub enum SubjectNameStrategy<'a> {
 
 #[async_trait]
 pub trait SchemaRegistrySerializer: Send + Sync {
+    type Error: StdError + Send + Sync;
+
     async fn serialize_value<T>(
         &self,
         strategy: SubjectNameStrategy<'_>,
         data: &T,
-    ) -> Result<Vec<u8>, ()>
+    ) -> Result<Vec<u8>, Self::Error>
     where
-        T: Serialize;
+        T: Serialize + Send + Sync;
 
     async fn serialize_key<T>(
         &self,
         strategy: SubjectNameStrategy<'_>,
         data: &T,
-    ) -> Result<Vec<u8>, ()>
+    ) -> Result<Vec<u8>, Self::Error>
     where
-        T: Serialize;
+        T: Serialize + Send + Sync;
 }
 
 #[async_trait]
 pub trait SchemaRegistryDeserializer: Send + Sync {
-    async fn deserialize<T>(&self, data: Option<&[u8]>) -> Result<T, ()>
+    type Error: StdError + Send + Sync;
+
+    async fn deserialize<T>(&self, data: Option<&[u8]>) -> Result<T, Self::Error>
     where
         T: DeserializeOwned;
 }
