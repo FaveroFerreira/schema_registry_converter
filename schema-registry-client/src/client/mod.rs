@@ -9,7 +9,7 @@ pub(crate) mod test_util;
 mod util;
 
 #[async_trait]
-pub trait SchemaRegistryClient {
+pub trait SchemaRegistryClient: Send + Sync {
     async fn get_schema_by_subject(
         &self,
         subject: &str,

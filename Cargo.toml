@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["schema-registry-client"]
+members = ["schema-registry-client", "schema-registry-serde", "schema-registry-serde-avro", "schema-registry-serde-json", "schema-registry-serde-protobuf"]
 
 [workspace.lints.rust]
 rust_2018_idioms = "warn"

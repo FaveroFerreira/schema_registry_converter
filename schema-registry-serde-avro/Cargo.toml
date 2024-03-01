@@ -1,0 +1,15 @@
+[package]
+name = "schema-registry-serde-avro"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+schema-registry-client = { path = "../schema-registry-client" }
+schema-registry-serde = { path = "../schema-registry-serde" }
+async-trait = "0.1"
+serde = "1.0"
+apache-avro = "0.16"
+byteorder = "1.5"

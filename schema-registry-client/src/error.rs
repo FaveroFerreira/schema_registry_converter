@@ -18,13 +18,13 @@ pub enum ConfigurationError {
         source: InvalidHeaderValue,
     },
 
-    #[error("Error formatting auth header: {source}")]
+    #[error("Error applying authentication header: {source}")]
     Io {
         #[from]
         source: io::Error,
     },
 
-    #[error("Invalid proxy configuration: {source}")]
+    #[error("Error configuring proxy: {source}")]
     Proxy {
         #[from]
         source: reqwest::Error,
@@ -33,7 +33,7 @@ pub enum ConfigurationError {
 
 #[derive(Debug, ThisError)]
 pub enum HttpCallError {
-    #[error("Error parsing Schema REgistry response '{response}': {source}")]
+    #[error("Error parsing Schema Registry response '{response}': {source}")]
     JsonParse {
         response: JsonValue,
         source: reqwest::Error,
