@@ -23,6 +23,11 @@ pub struct CachedSchemaRegistryClient {
 }
 
 impl CachedSchemaRegistryClient {
+    /// Create a new `CachedSchemaRegistryClient` from a `SchemaRegistryConfig`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the `SchemaRegistryConfig` is invalid or if the HTTP client cannot be created.
     pub fn from_conf(conf: SchemaRegistryConfig) -> Result<Self, SchemaRegistryError> {
         let urls = Arc::from(conf.urls.clone());
         let http = util::build_http_client(&conf)?;
@@ -35,6 +40,38 @@ impl CachedSchemaRegistryClient {
             id_cache,
             subject_cache,
         })
+    }
+
+    /// Check if the schema is already in the cache and return it if it is.
+    pub async fn check_id_cache(&self, id: u32) -> Option<Schema> {
+        self.id_cache.get(&id).map(|cached| cached.value().clone())
+    }
+
+    /// Check if the subject is already in the cache and return it if it is.
+    pub async fn check_subject_cache(&self, subject: &str) -> Option<u32> {
+        self.subject_cache
+            .get(subject)
+            .map(|cached| *cached.value())
+    }
+
+    /// Insert a schema into the cache.
+    pub async fn insert_id_cache(&self, id: u32, schema: Schema) {
+        self.id_cache.insert(id, schema);
+    }
+
+    /// Insert a subject into the cache and update the ID cache.
+    pub async fn insert_subject_cache(&self, subject: &Subject) {
+        self.insert_id_cache(
+            subject.id,
+            Schema {
+                schema_type: subject.schema_type,
+                schema: subject.schema.clone(),
+            },
+        )
+        .await;
+
+        self.subject_cache
+            .insert(subject.subject.clone(), subject.id);
     }
 
     /// Execute a list of async calls and return the first successful result.
@@ -56,69 +93,70 @@ impl SchemaRegistryClient for CachedSchemaRegistryClient {
         subject: &str,
         version: Version,
     ) -> Result<Schema, SchemaRegistryError> {
-        if let Some(cached) = self.subject_cache.get(subject) {
-            return self.get_schema_by_id(*cached.value()).await;
+        if let Some(cached) = self.check_subject_cache(subject).await {
+            return self.get_schema_by_id(cached).await;
         }
 
-        let mut calls = Vec::with_capacity(self.urls.len());
+        let calls = self
+            .urls
+            .iter()
+            .map(|url| {
+                let http = self.http.clone();
+                let url = format!("{}/subjects/{}/versions/{}", url, subject, version);
 
-        for url in self.urls.iter() {
-            let http = self.http.clone();
-            let url = format!("{}/subjects/{}/versions/{}", url, subject, version);
+                async move {
+                    let response = http
+                        .get(&url)
+                        .header(header::ACCEPT, APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON)
+                        .send()
+                        .await
+                        .map_err(HttpCallError::from)?;
 
-            let call = async move {
-                let response = http
-                    .get(&url)
-                    .header(header::ACCEPT, APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON)
-                    .send()
-                    .await
-                    .map_err(HttpCallError::from)?;
-
-                handle_response::<Subject>(response).await
-            }
-            .boxed();
-
-            calls.push(call.boxed());
-        }
+                    handle_response::<Subject>(response).await
+                }
+                .boxed()
+            })
+            .collect();
 
         let subject = self.exec_calls(calls).await?;
-        self.subject_cache.insert(subject.subject, subject.id);
 
-        let schema = Schema {
+        self.insert_subject_cache(&subject).await;
+
+        Ok(Schema {
             schema_type: subject.schema_type,
             schema: subject.schema,
-        };
-
-        Ok(schema)
+        })
     }
 
     async fn get_schema_by_id(&self, id: u32) -> Result<Schema, SchemaRegistryError> {
-        if let Some(cached) = self.id_cache.get(&id) {
-            return Ok(cached.value().clone());
+        if let Some(cached) = self.check_id_cache(id).await {
+            return Ok(cached);
         }
 
-        let mut calls = Vec::with_capacity(self.urls.len());
+        let calls = self
+            .urls
+            .iter()
+            .map(|url| {
+                let http = self.http.clone();
+                let url = format!("{}/schemas/ids/{}?deleted=true", url, id);
 
-        for url in self.urls.iter() {
-            let http = self.http.clone();
-            let url = format!("{}/schemas/ids/{}?deleted=true", url, id);
+                async move {
+                    let response = http
+                        .get(&url)
+                        .header(header::ACCEPT, APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON)
+                        .send()
+                        .await
+                        .map_err(HttpCallError::from)?;
 
-            let call = async move {
-                let response = http
-                    .get(&url)
-                    .header(header::ACCEPT, APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON)
-                    .send()
-                    .await
-                    .map_err(HttpCallError::from)?;
-
-                handle_response::<Schema>(response).await
-            }
-            .boxed();
-
-            calls.push(call.boxed());
-        }
+                    handle_response::<Schema>(response).await
+                }
+                .boxed()
+            })
+            .collect();
 
         let schema = self.exec_calls(calls).await?;
+
+        self.insert_id_cache(id, schema.clone()).await;
 
         Ok(schema)
     }
