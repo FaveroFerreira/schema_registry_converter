@@ -148,7 +148,8 @@ impl MockSchemaRegistry {
 pub async fn install_any_matcher(server: &MockServer) {
     Mock::given(any())
         .respond_with(
-            ResponseTemplate::new(500).set_body_string(r#"{ "error": "No mock defined" }"#),
+            ResponseTemplate::new(500)
+                .set_body_string(r#"{ "error_code": 420, "description": "No mock defined" }"#),
         )
         .mount(server)
         .await;
