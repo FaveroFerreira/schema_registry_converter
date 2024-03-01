@@ -4,7 +4,7 @@ use futures::StreamExt;
 use rdkafka::consumer::{CommitMode, Consumer, StreamConsumer};
 use rdkafka::{ClientConfig, Message};
 use serde::Deserialize;
-use tracing::{info, instrument};
+use tracing::{error, info, instrument};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
@@ -20,7 +20,7 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let deserializer = create_schema_registry()?;
+    let deserializer = create_deserializer()?;
 
     let consumer = create_consumer()?;
     consumer.subscribe(&["example.account-created"])?;
@@ -28,8 +28,10 @@ async fn main() -> anyhow::Result<()> {
     let mut stream = consumer.stream();
 
     while let Some(Ok(message)) = stream.next().await {
-        let account_created = deserializer.deserialize(message.payload()).await?;
-        on_account_created(account_created);
+        match deserializer.deserialize(message.payload()).await {
+            Ok(account_created) => on_account_created(account_created),
+            Err(e) => error!("Failed to deserialize message: {}", e),
+        }
 
         consumer.commit_message(&message, CommitMode::Async)?;
     }
@@ -61,12 +63,13 @@ fn create_consumer() -> anyhow::Result<StreamConsumer> {
     let consumer = ClientConfig::new()
         .set("bootstrap.servers", "localhost:9092")
         .set("group.id", "example-rdkafka-kafka-avro-consumer")
+        .set("auto.offset.reset", "beginning")
         .create::<StreamConsumer>()?;
 
     Ok(consumer)
 }
 
-fn create_schema_registry() -> anyhow::Result<SchemaRegistryAvroDeserializer> {
+fn create_deserializer() -> anyhow::Result<SchemaRegistryAvroDeserializer> {
     let sr = Arc::new(CachedSchemaRegistryClient::from_url(
         "http://localhost:8081",
     )?);

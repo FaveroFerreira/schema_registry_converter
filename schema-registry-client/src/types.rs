@@ -53,7 +53,16 @@ impl FromStr for SchemaType {
 
 #[derive(Debug, Clone, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub struct StringSchema {
+    pub schema: String,
+    #[serde(default)]
+    pub schema_type: SchemaType,
+}
+
+#[derive(Debug, Clone, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Schema {
+    pub id: u32,
     #[serde(default)]
     pub schema_type: SchemaType,
     pub schema: String,

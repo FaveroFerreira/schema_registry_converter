@@ -10,7 +10,7 @@ use serde::de::DeserializeOwned;
 use crate::client::{util, SchemaRegistryClient};
 use crate::config::SchemaRegistryConfig;
 use crate::error::{HttpCallError, SchemaRegistryError};
-use crate::types::{RegisteredSchema, Schema, Subject, UnregisteredSchema, Version};
+use crate::types::{RegisteredSchema, Schema, StringSchema, Subject, UnregisteredSchema, Version};
 
 const APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON: &str = "application/vnd.schemaregistry.v1+json";
 
@@ -81,6 +81,7 @@ impl CachedSchemaRegistryClient {
         self.insert_id_cache(
             subject.id,
             Schema {
+                id: subject.id,
                 schema_type: subject.schema_type,
                 schema: subject.schema.clone(),
             },
@@ -128,6 +129,7 @@ impl SchemaRegistryClient for CachedSchemaRegistryClient {
         self.insert_subject_cache(&subject).await;
 
         Ok(Schema {
+            id: subject.id,
             schema_type: subject.schema_type,
             schema: subject.schema,
         })
@@ -152,13 +154,19 @@ impl SchemaRegistryClient for CachedSchemaRegistryClient {
                         .send()
                         .await?;
 
-                    parse_response::<Schema>(response).await
+                    parse_response::<StringSchema>(response).await
                 }
                 .boxed()
             })
             .collect();
 
-        let schema = exec_http_calls(calls).await?;
+        let string_schema = exec_http_calls(calls).await?;
+
+        let schema = Schema {
+            id,
+            schema_type: string_schema.schema_type,
+            schema: string_schema.schema,
+        };
 
         self.insert_id_cache(id, schema.clone()).await;
 
@@ -198,6 +206,7 @@ impl SchemaRegistryClient for CachedSchemaRegistryClient {
         let registered_schema = exec_http_calls(calls).await?;
 
         let schema = Schema {
+            id: registered_schema.id,
             schema_type: unregistered.schema_type,
             schema: unregistered.schema.clone(),
         };

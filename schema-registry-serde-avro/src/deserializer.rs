@@ -11,8 +11,8 @@ use crate::error::{AvroDeserializationError, ErrorMessage};
 use schema_registry_client::SchemaRegistryClient;
 use schema_registry_serde::SchemaRegistryDeserializer;
 
-const AVRO_MAGIC_BYTE: u8 = 0;
-const AVRO_ENCODED_SCHEMA_ID_RANGE: Range<usize> = 1..5;
+pub const AVRO_MAGIC_BYTE: u8 = 0;
+pub const AVRO_ENCODED_SCHEMA_ID_RANGE: Range<usize> = 1..5;
 
 pub struct Extracted<'a> {
     pub schema_id: u32,
