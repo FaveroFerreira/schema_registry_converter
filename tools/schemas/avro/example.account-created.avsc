@@ -1,0 +1,23 @@
+{
+  "namespace": "example",
+  "type": "record",
+  "name": "ExampleAccountCreated",
+  "fields": [
+    {
+      "name": "username",
+      "type": "string"
+    },
+    {
+      "name": "password",
+      "type": "string"
+    },
+    {
+      "name": "nickname",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    }
+  ]
+}
