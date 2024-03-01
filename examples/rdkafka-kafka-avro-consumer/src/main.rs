@@ -1,3 +1,4 @@
+use futures::future::try_join;
 use std::sync::Arc;
 
 use futures::StreamExt;
@@ -20,7 +21,7 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let deserializer = create_deserializer()?;
+    let de = create_deserializer()?;
 
     let consumer = create_consumer()?;
     consumer.subscribe(&["example.account-created"])?;
@@ -28,9 +29,16 @@ async fn main() -> anyhow::Result<()> {
     let mut stream = consumer.stream();
 
     while let Some(Ok(message)) = stream.next().await {
-        match deserializer.deserialize(message.payload()).await {
-            Ok(account_created) => on_account_created(account_created),
-            Err(e) => error!("Failed to deserialize message: {}", e),
+        let key = de.deserialize(message.key());
+        let value = de.deserialize(message.payload());
+
+        match try_join(key, value).await {
+            Ok((key, value)) => {
+                on_account_created((key, value));
+            }
+            Err(e) => {
+                error!("Failed to deserialize message: {:?}", e);
+            }
         }
 
         consumer.commit_message(&message, CommitMode::Async)?;
@@ -39,20 +47,23 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[instrument(
-    name = "on_account_created",
-    skip(account_created),
-    fields(
-        username = %account_created.username,
-        password = %account_created.password,
-        nickname = ?account_created.nickname
-    )
-)]
-fn on_account_created(account_created: ExampleAccountCreated) {
+#[instrument(name = "on_account_created")]
+fn on_account_created((metadata, value): (ExampleAccountCreatedMetadata, ExampleAccountCreated)) {
     info!("Received account created event");
+
+    info!("Metadata: {:?}", metadata);
+    info!("Value: {:?}", value);
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(unused)]
+struct ExampleAccountCreatedMetadata {
+    tenant: String,
+    source: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(unused)]
 struct ExampleAccountCreated {
     username: String,
     password: String,

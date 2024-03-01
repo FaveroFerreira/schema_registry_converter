@@ -26,6 +26,11 @@ async fn main() -> anyhow::Result<()> {
     let topic = "example.account-created";
 
     for i in 0..10 {
+        let metadata = ExampleAccountCreatedMetadata {
+            tenant: "acme".to_string(),
+            source: "example".to_string(),
+        };
+
         let account_created = ExampleAccountCreated {
             username: "john.doe".to_string(),
             password: "12345".to_string(),
@@ -36,11 +41,14 @@ async fn main() -> anyhow::Result<()> {
             },
         };
 
-        let bytes = serializer
+        let key = serializer
+            .serialize_key(SubjectNameStrategy::TopicName(&topic), &metadata)
+            .await?;
+        let value = serializer
             .serialize_value(SubjectNameStrategy::TopicName(&topic), &account_created)
             .await?;
 
-        let message = FutureRecord::to(topic).payload(&bytes).key("john.doe");
+        let message = FutureRecord::to(topic).payload(&value).key(&key);
 
         producer
             .send(message, Timeout::Never)
@@ -51,6 +59,12 @@ async fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+#[derive(Debug, Serialize)]
+struct ExampleAccountCreatedMetadata {
+    tenant: String,
+    source: String,
 }
 
 #[derive(Debug, Serialize)]

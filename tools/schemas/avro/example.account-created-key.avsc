@@ -1,0 +1,15 @@
+{
+  "namespace": "example",
+  "type": "record",
+  "name": "ExampleAccountCreatedMetadata",
+  "fields": [
+    {
+      "name": "tenant",
+      "type": "string"
+    },
+    {
+      "name": "source",
+      "type": "string"
+    }
+  ]
+}

@@ -87,6 +87,12 @@ impl SchemaRegistrySerializer for SchemaRegistryAvroSerializer {
 
         let bytes = apache_avro::to_avro_datum(&avro_schema, avro_value)?;
 
-        Ok(bytes)
+        let mut payload = vec![0u8];
+        let mut buf = [0u8; 4];
+        BigEndian::write_u32(&mut buf, schema.id);
+        payload.extend_from_slice(&buf);
+        payload.extend_from_slice(&bytes);
+
+        Ok(payload)
     }
 }
