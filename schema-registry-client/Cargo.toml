@@ -4,14 +4,17 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-futures = "^0.3"
-thiserror = "^1.0"
-async-trait = "^0.1"
-reqwest = { version = "^0.11", features = ["json"] }
-base64 = "^0.21"
-serde = { version = "^1.0", features = ["derive"] }
-tracing = "^0.1"
-dashmap = "^5.5"
+serde_json = "1.0"
+futures = "0.3"
+thiserror = "1.0"
+async-trait = "0.1"
+reqwest = { version = "0.11", features = ["json"] }
+base64 = "0.21"
+serde = { version = "1.0", features = ["derive"] }
+tracing = "0.1"
+dashmap = "5.5"
 
 [dev-dependencies]
+tokio = { version = "1", features = ["full"] }
 factori = "1"
+wiremock = "0.6"

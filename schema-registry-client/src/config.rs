@@ -44,13 +44,13 @@ impl fmt::Display for Authentication {
 #[derive(Default, Clone)]
 pub struct SchemaRegistryConfig {
     /// Comma separated list of schema registry urls
-    pub urls: Vec<String>,
+    pub(crate) urls: Vec<String>,
     /// Optional authentication configuration
-    pub authentication: Option<Authentication>,
+    pub(crate) authentication: Option<Authentication>,
     /// Optional proxy configuration
-    pub proxy: Option<String>,
+    pub(crate) proxy: Option<String>,
     /// Optional headers to be included in every request
-    pub headers: Option<HashMap<String, String>>,
+    pub(crate) headers: Option<HashMap<String, String>>,
 }
 
 impl SchemaRegistryConfig {
@@ -150,7 +150,6 @@ mod tests {
         pub schema_registry_url: String,
         pub schema_registry_username: String,
         pub schema_registry_password: String,
-        pub schema_registry_token: String,
         pub schema_registry_proxy: String,
         pub schema_registry_headers: HashMap<String, String>,
     }
@@ -160,7 +159,6 @@ mod tests {
             schema_registry_url = "http://localhost:8081".to_owned(),
             schema_registry_username = "sr-username".to_owned(),
             schema_registry_password = "sr-password".to_owned(),
-            schema_registry_token = "sr-token".to_owned(),
             schema_registry_proxy = "http://localhost:9999".to_owned(),
             schema_registry_headers = headers(),
         }

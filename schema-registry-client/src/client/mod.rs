@@ -4,6 +4,8 @@ use crate::error::SchemaRegistryError;
 use crate::types::{Schema, Version};
 
 pub mod cached;
+#[cfg(test)]
+pub(crate) mod test_util;
 mod util;
 
 #[async_trait]
