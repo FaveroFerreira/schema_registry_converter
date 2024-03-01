@@ -15,5 +15,3 @@ tokio = { version = "1", features = ["full"] }
 rdkafka = "0.36"
 schema-registry-converter = { path = "../../schema-registry-converter", features = ["avro"] }
 serde = { version = "1.0", features = ["derive"] }
-
-

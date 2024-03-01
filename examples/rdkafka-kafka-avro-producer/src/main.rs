@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use futures::future::try_join;
 use rdkafka::producer::{FutureProducer, FutureRecord};
 use rdkafka::util::Timeout;
 use rdkafka::ClientConfig;
@@ -20,15 +21,16 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let serializer = create_serializer()?;
+    let ser = create_serializer()?;
     let producer = create_producer()?;
 
     let topic = "example.account-created";
+    let strategy = SubjectNameStrategy::TopicName(&topic);
 
     for i in 0..10 {
         let metadata = ExampleAccountCreatedMetadata {
-            tenant: "acme".to_string(),
-            source: "example".to_string(),
+            tenant: "br".to_string(),
+            source: "c2c".to_string(),
         };
 
         let account_created = ExampleAccountCreated {
@@ -41,14 +43,12 @@ async fn main() -> anyhow::Result<()> {
             },
         };
 
-        let key = serializer
-            .serialize_key(SubjectNameStrategy::TopicName(&topic), &metadata)
-            .await?;
-        let value = serializer
-            .serialize_value(SubjectNameStrategy::TopicName(&topic), &account_created)
-            .await?;
+        let key = ser.serialize_key(strategy, &metadata);
+        let value = ser.serialize_value(strategy, &account_created);
 
-        let message = FutureRecord::to(topic).payload(&value).key(&key);
+        let pair = try_join(key, value).await?;
+
+        let message = FutureRecord::to(topic).key(&pair.0).payload(&pair.1);
 
         producer
             .send(message, Timeout::Never)

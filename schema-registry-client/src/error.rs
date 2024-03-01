@@ -66,6 +66,9 @@ pub enum SchemaRegistryError {
 
     #[error("Error parsing invalid schema type: {message}")]
     InvalidSchemaType { message: String },
+
+    #[error("Error: {0}")]
+    Other(BoxError),
 }
 
 impl SchemaRegistryError {

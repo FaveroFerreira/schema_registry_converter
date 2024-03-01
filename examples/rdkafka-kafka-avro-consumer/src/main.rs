@@ -1,6 +1,6 @@
-use futures::future::try_join;
 use std::sync::Arc;
 
+use futures::future::try_join;
 use futures::StreamExt;
 use rdkafka::consumer::{CommitMode, Consumer, StreamConsumer};
 use rdkafka::{ClientConfig, Message};
@@ -33,8 +33,8 @@ async fn main() -> anyhow::Result<()> {
         let value = de.deserialize(message.payload());
 
         match try_join(key, value).await {
-            Ok((key, value)) => {
-                on_account_created((key, value));
+            Ok(pair) => {
+                on_account_created(pair);
             }
             Err(e) => {
                 error!("Failed to deserialize message: {:?}", e);
@@ -47,12 +47,12 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[instrument(name = "on_account_created")]
-fn on_account_created((metadata, value): (ExampleAccountCreatedMetadata, ExampleAccountCreated)) {
+#[instrument(name = "on_account_created", skip(pair))]
+fn on_account_created(pair: (ExampleAccountCreatedMetadata, ExampleAccountCreated)) {
     info!("Received account created event");
 
-    info!("Metadata: {:?}", metadata);
-    info!("Value: {:?}", value);
+    info!("Metadata: {:?}", pair.0);
+    info!("Value: {:?}", pair.1);
 }
 
 #[derive(Debug, Deserialize)]
