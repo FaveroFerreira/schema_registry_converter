@@ -1,0 +1,23 @@
+[package]
+name = "schema-registry-converter"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[features]
+avro = ["schema-registry-serde-avro"]
+protobuf = ["schema-registry-serde-protobuf"]
+json = ["schema-registry-serde-json"]
+
+[dependencies]
+schema-registry-client = { path = "../schema-registry-client" }
+schema-registry-serde = { path = "../schema-registry-serde" }
+schema-registry-serde-avro = { optional = true, path = "../schema-registry-serde-avro" }
+schema-registry-serde-protobuf = { optional = true, path = "../schema-registry-serde-protobuf" }
+schema-registry-serde-json = { optional = true, path = "../schema-registry-serde-json" }
+
+
+
+

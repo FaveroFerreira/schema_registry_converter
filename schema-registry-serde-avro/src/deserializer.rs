@@ -19,8 +19,17 @@ pub struct Extracted<'a> {
     pub payload: &'a [u8],
 }
 
+#[derive(Clone)]
 pub struct SchemaRegistryAvroDeserializer {
     schema_registry_client: Arc<dyn SchemaRegistryClient>,
+}
+
+impl SchemaRegistryAvroDeserializer {
+    pub fn new(schema_registry_client: Arc<dyn SchemaRegistryClient>) -> Self {
+        Self {
+            schema_registry_client,
+        }
+    }
 }
 
 #[async_trait]

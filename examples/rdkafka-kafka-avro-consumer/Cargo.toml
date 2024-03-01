@@ -1,0 +1,17 @@
+[package]
+name = "rdkafka-kafka-avro-consumer"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+futures = "0.3"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tokio = { version = "1", features = ["full"] }
+rdkafka = "0.36"
+schema-registry-converter = { path = "../../schema-registry-converter", features = ["avro"] }
+serde = { version = "1.0", features = ["derive"] }

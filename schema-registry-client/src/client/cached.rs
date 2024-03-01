@@ -22,6 +22,24 @@ pub struct CachedSchemaRegistryClient {
 }
 
 impl CachedSchemaRegistryClient {
+    /// Create a new `CachedSchemaRegistryClient` from a URL.
+    ///
+    /// This is the simplest way to create a new `CachedSchemaRegistryClient`.
+    /// However, if you need to customize the client, you should use `from_conf` instead.
+    pub fn from_url(url: &str) -> Result<Self, SchemaRegistryError> {
+        let urls = Arc::from([url.to_owned()]);
+        let http = util::build_http_client(&SchemaRegistryConfig::new().url(url))?;
+        let id_cache = DashMap::new();
+        let subject_cache = DashMap::new();
+
+        Ok(Self {
+            http,
+            urls,
+            id_cache,
+            subject_cache,
+        })
+    }
+
     /// Create a new `CachedSchemaRegistryClient` from a `SchemaRegistryConfig`.
     ///
     /// # Errors
