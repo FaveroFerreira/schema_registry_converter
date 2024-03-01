@@ -6,7 +6,6 @@ use futures::future::BoxFuture;
 use futures::FutureExt;
 use reqwest::{header, Client};
 use serde::de::DeserializeOwned;
-use serde_json::Value as JsonValue;
 
 use crate::client::{util, SchemaRegistryClient};
 use crate::config::SchemaRegistryConfig;
@@ -73,17 +72,6 @@ impl CachedSchemaRegistryClient {
         self.subject_cache
             .insert(subject.subject.clone(), subject.id);
     }
-
-    /// Execute a list of async calls and return the first successful result.
-    /// If all calls fail, the error from the last call is returned.
-    async fn exec_calls<'a, T>(
-        &self,
-        calls: Vec<BoxFuture<'a, Result<T, SchemaRegistryError>>>,
-    ) -> Result<T, SchemaRegistryError> {
-        let (result, remaining) = futures::future::select_ok(calls.into_iter()).await?;
-        remaining.into_iter().for_each(drop);
-        Ok(result)
-    }
 }
 
 #[async_trait]
@@ -109,16 +97,15 @@ impl SchemaRegistryClient for CachedSchemaRegistryClient {
                         .get(&url)
                         .header(header::ACCEPT, APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON)
                         .send()
-                        .await
-                        .map_err(HttpCallError::from)?;
+                        .await?;
 
-                    handle_response::<Subject>(response).await
+                    parse_response::<Subject>(response).await
                 }
                 .boxed()
             })
             .collect();
 
-        let subject = self.exec_calls(calls).await?;
+        let subject = exec_http_calls(calls).await?;
 
         self.insert_subject_cache(&subject).await;
 
@@ -145,16 +132,15 @@ impl SchemaRegistryClient for CachedSchemaRegistryClient {
                         .get(&url)
                         .header(header::ACCEPT, APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON)
                         .send()
-                        .await
-                        .map_err(HttpCallError::from)?;
+                        .await?;
 
-                    handle_response::<Schema>(response).await
+                    parse_response::<Schema>(response).await
                 }
                 .boxed()
             })
             .collect();
 
-        let schema = self.exec_calls(calls).await?;
+        let schema = exec_http_calls(calls).await?;
 
         self.insert_id_cache(id, schema.clone()).await;
 
@@ -183,16 +169,15 @@ impl SchemaRegistryClient for CachedSchemaRegistryClient {
                         )
                         .json(&unregistered)
                         .send()
-                        .await
-                        .map_err(HttpCallError::from)?;
+                        .await?;
 
-                    handle_response::<RegisteredSchema>(response).await
+                    parse_response::<RegisteredSchema>(response).await
                 }
                 .boxed()
             })
             .collect();
 
-        let registered_schema = self.exec_calls(calls).await?;
+        let registered_schema = exec_http_calls(calls).await?;
 
         let schema = Schema {
             schema_type: unregistered.schema_type,
@@ -206,20 +191,46 @@ impl SchemaRegistryClient for CachedSchemaRegistryClient {
     }
 }
 
-async fn handle_response<T: DeserializeOwned>(
+/// Execute a collection of async calls and return the first successful result.
+/// If all calls fail, return the last error.
+async fn exec_http_calls<T>(
+    calls: Vec<BoxFuture<'_, Result<T, HttpCallError>>>,
+) -> Result<T, HttpCallError> {
+    let (result, remaining) = futures::future::select_ok(calls.into_iter()).await?;
+    remaining.into_iter().for_each(drop);
+    Ok(result)
+}
+
+/// Parse a response into a JSON value and return the result or an error.
+///
+/// If the response is successful, tries to parse the JSON value into the desired type.
+/// If the response is not successful, tries to parse the JSON value into a `JsonValue` and return an error.
+async fn parse_response<T: DeserializeOwned>(
     response: reqwest::Response,
-) -> Result<T, SchemaRegistryError> {
-    match response.error_for_status_ref() {
-        Ok(_) => {
-            let response = response.json::<T>().await.map_err(HttpCallError::from)?;
-            Ok(response)
-        }
-        Err(source) => {
-            let response = response
-                .json::<JsonValue>()
-                .await
-                .map_err(HttpCallError::from)?;
-            Err(HttpCallError::JsonParse { response, source })?
+) -> Result<T, HttpCallError> {
+    let status = response.status();
+    let host = response.url().to_string();
+    let bytes = response.bytes().await?;
+
+    match status.as_u16() {
+        200..=299 => match serde_json::from_slice::<T>(&bytes) {
+            Ok(parsed) => Ok(parsed),
+            Err(source) => {
+                let body = String::from_utf8_lossy(&bytes);
+
+                Err(HttpCallError::JsonParse {
+                    body: String::from(body),
+                    target: std::any::type_name::<T>(),
+                    source: Box::new(source),
+                })
+            }
+        },
+        _ => {
+            return Err(HttpCallError::UpstreamError {
+                url: host,
+                status: status.as_u16(),
+                body: String::from_utf8_lossy(&bytes).to_string(),
+            });
         }
     }
 }
@@ -233,6 +244,79 @@ mod tests {
     };
     use crate::types::{SchemaType, UnregisteredSchema};
     use crate::{CachedSchemaRegistryClient, SchemaRegistryClient, SchemaRegistryConfig};
+
+    mod http_components_tests {
+        use http::response::Builder;
+        use reqwest::{Body, Response};
+        use serde::Deserialize;
+
+        use crate::client::cached::parse_response;
+        use crate::error::HttpCallError;
+
+        #[derive(Debug, Deserialize)]
+        struct TestResponse {
+            status: String,
+        }
+
+        #[tokio::test]
+        async fn check_can_parse_response_if_status_is_2xx() {
+            let builder = Builder::new()
+                .status(200)
+                .body(Body::from(r#"{ "status": "OK" }"#))
+                .unwrap();
+
+            let result = parse_response::<TestResponse>(Response::from(builder)).await;
+
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap().status, "OK");
+        }
+
+        #[tokio::test]
+        async fn should_have_great_messages_to_help_debug_errors() {
+            let builder = Builder::new()
+                .status(200)
+                .body(Body::from(r#"{ "malformed json" }"#))
+                .unwrap();
+
+            let result = parse_response::<TestResponse>(Response::from(builder)).await;
+
+            let error = result.unwrap_err();
+
+            match &error {
+                HttpCallError::JsonParse { body, target, .. } => {
+                    assert_eq!(body, r#"{ "malformed json" }"#);
+                    assert_eq!(
+                        target.to_string(),
+                        "schema_registry_client::client::cached::tests::http_components_tests::TestResponse"
+                    );
+                    assert_eq!(error.to_string(), "Error parsing Schema Registry response '{ \"malformed json\" }' \
+                    into 'schema_registry_client::client::cached::tests::http_components_tests::TestResponse': \
+                    expected `:` at line 1 column 20".to_string());
+                }
+                _ => panic!("Expected a JSON parse error"),
+            }
+        }
+
+        #[tokio::test]
+        async fn should_return_client_error_if_status_is_4xx() {
+            let builder = Builder::new()
+                .status(400)
+                .body(Body::from(r#"{ "status": "Bad Request" }"#))
+                .unwrap();
+
+            let result = parse_response::<TestResponse>(Response::from(builder)).await;
+
+            let error = result.unwrap_err();
+
+            match &error {
+                HttpCallError::UpstreamError { status, body, .. } => {
+                    assert_eq!(*status, 400);
+                    assert_eq!(body, r#"{ "status": "Bad Request" }"#);
+                }
+                _ => panic!("Expected a client error"),
+            }
+        }
+    }
 
     #[tokio::test]
     async fn can_get_schema_using_basic_auth() {

@@ -1,5 +1,7 @@
+use crate::SchemaRegistryError;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::str::FromStr;
 
 #[derive(Default, Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Version {
@@ -24,6 +26,29 @@ pub enum SchemaType {
     Avro,
     Protobuf,
     Json,
+}
+
+impl fmt::Display for SchemaType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SchemaType::Avro => write!(f, "AVRO"),
+            SchemaType::Protobuf => write!(f, "PROTOBUF"),
+            SchemaType::Json => write!(f, "JSON"),
+        }
+    }
+}
+
+impl FromStr for SchemaType {
+    type Err = SchemaRegistryError;
+
+    fn from_str(str: &str) -> Result<Self, Self::Err> {
+        match str {
+            s if s.eq_ignore_ascii_case("AVRO") => Ok(SchemaType::Avro),
+            s if s.eq_ignore_ascii_case("PROTOBUF") => Ok(SchemaType::Protobuf),
+            s if s.eq_ignore_ascii_case("JSON") => Ok(SchemaType::Json),
+            _ => Err(SchemaRegistryError::invalid_schema_type(str)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Eq, PartialEq)]

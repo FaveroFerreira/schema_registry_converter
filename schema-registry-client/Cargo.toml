@@ -15,6 +15,8 @@ tracing = "0.1"
 dashmap = "5.5"
 
 [dev-dependencies]
+bytes = "1.5"
+http = "0.2"
 tokio = { version = "1", features = ["full"] }
 factori = "1"
 wiremock = "0.6"

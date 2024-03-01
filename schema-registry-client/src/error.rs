@@ -1,8 +1,10 @@
+use std::error::Error as StdError;
 use std::io;
 
 use reqwest::header::{InvalidHeaderName, InvalidHeaderValue};
-use serde_json::Value as JsonValue;
 use thiserror::Error as ThisError;
+
+pub type BoxError = Box<dyn StdError + Send + Sync>;
 
 #[derive(Debug, ThisError)]
 pub enum ConfigurationError {
@@ -33,14 +35,22 @@ pub enum ConfigurationError {
 
 #[derive(Debug, ThisError)]
 pub enum HttpCallError {
-    #[error("Error parsing Schema Registry response '{response}': {source}")]
+    #[error("Error parsing Schema Registry response '{body}' into '{target}': {source}")]
     JsonParse {
-        response: JsonValue,
-        source: reqwest::Error,
+        body: String,
+        target: &'static str,
+        source: BoxError,
     },
 
-    #[error("HTTP call error: {source}")]
-    Generic {
+    #[error("Upstream error: {url} returned {status}: {body}")]
+    UpstreamError {
+        url: String,
+        status: u16,
+        body: String,
+    },
+
+    #[error("Unexpected HTTP Call error: {source}")]
+    Unexpected {
         #[from]
         source: reqwest::Error,
     },
@@ -53,4 +63,15 @@ pub enum SchemaRegistryError {
 
     #[error(transparent)]
     HttpCall(#[from] HttpCallError),
+
+    #[error("Error parsing invalid schema type: {message}")]
+    InvalidSchemaType { message: String },
+}
+
+impl SchemaRegistryError {
+    pub fn invalid_schema_type<T: ToString>(s: T) -> Self {
+        SchemaRegistryError::InvalidSchemaType {
+            message: s.to_string(),
+        }
+    }
 }
