@@ -1,15 +1,20 @@
 use std::fs;
 
+use serde::Serialize;
+use serde_json::Value as JsonValue;
 use wiremock::http::Method;
-use wiremock::matchers::{any, basic_auth, header, method, path, query_param};
+use wiremock::matchers::{any, basic_auth, body_json, header, method, path, query_param};
 use wiremock::{Mock, MockBuilder, MockServer, ResponseTemplate};
 
 pub const HEARTBEAT_SCHEMA_FILE_PATH: &str = "tests/resources/heartbeat_schema.json";
+pub const REGISTER_SUBJECT_RESPONSE_FILE_PATH: &str =
+    "tests/resources/register_subject_response.json";
 
 #[derive(Default)]
 pub struct MockRequestBuilder {
     method: Method,
     path: Option<String>,
+    body: Option<JsonValue>,
     query: Option<Vec<(String, String)>>,
     basic_auth: Option<(String, String)>,
     headers: Vec<(String, String)>,
@@ -28,6 +33,11 @@ impl MockRequestBuilder {
             method: Method::POST,
             ..Default::default()
         }
+    }
+
+    pub fn with_body<T: Serialize>(mut self, body: &T) -> Self {
+        self.body = Some(serde_json::to_value(body).unwrap());
+        self
     }
 
     pub fn with_path(mut self, path: &str) -> Self {
@@ -57,6 +67,10 @@ impl MockRequestBuilder {
 
         if let Some(p) = self.path {
             mock_request = mock_request.and(path(p));
+        }
+
+        if let Some(b) = self.body {
+            mock_request = mock_request.and(body_json(b));
         }
 
         if let Some(q) = self.query {

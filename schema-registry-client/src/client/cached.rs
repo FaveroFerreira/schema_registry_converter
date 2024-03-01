@@ -11,7 +11,7 @@ use serde_json::Value as JsonValue;
 use crate::client::{util, SchemaRegistryClient};
 use crate::config::SchemaRegistryConfig;
 use crate::error::{HttpCallError, SchemaRegistryError};
-use crate::types::{Schema, Subject, Version};
+use crate::types::{RegisteredSchema, Schema, Subject, UnregisteredSchema, Version};
 
 const APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON: &str = "application/vnd.schemaregistry.v1+json";
 
@@ -160,6 +160,50 @@ impl SchemaRegistryClient for CachedSchemaRegistryClient {
 
         Ok(schema)
     }
+
+    async fn register_schema(
+        &self,
+        subject: &str,
+        unregistered: &UnregisteredSchema,
+    ) -> Result<Schema, SchemaRegistryError> {
+        let calls = self
+            .urls
+            .iter()
+            .map(|url| {
+                let http = self.http.clone();
+                let url = format!("{}/subjects/{}/versions", url, subject);
+
+                async move {
+                    let response = http
+                        .post(&url)
+                        .header(header::ACCEPT, APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON)
+                        .header(
+                            header::CONTENT_TYPE,
+                            APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON,
+                        )
+                        .json(&unregistered)
+                        .send()
+                        .await
+                        .map_err(HttpCallError::from)?;
+
+                    handle_response::<RegisteredSchema>(response).await
+                }
+                .boxed()
+            })
+            .collect();
+
+        let registered_schema = self.exec_calls(calls).await?;
+
+        let schema = Schema {
+            schema_type: unregistered.schema_type,
+            schema: unregistered.schema.clone(),
+        };
+
+        self.insert_id_cache(registered_schema.id, schema.clone())
+            .await;
+
+        Ok(schema)
+    }
 }
 
 async fn handle_response<T: DeserializeOwned>(
@@ -185,7 +229,9 @@ mod tests {
     use crate::client::cached::APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON;
     use crate::client::test_util::{
         MockRequestBuilder, MockResponseBuilder, MockSchemaRegistry, HEARTBEAT_SCHEMA_FILE_PATH,
+        REGISTER_SUBJECT_RESPONSE_FILE_PATH,
     };
+    use crate::types::{SchemaType, UnregisteredSchema};
     use crate::{CachedSchemaRegistryClient, SchemaRegistryClient, SchemaRegistryConfig};
 
     #[tokio::test]
@@ -209,5 +255,38 @@ mod tests {
         let client = CachedSchemaRegistryClient::from_conf(config).unwrap();
 
         let _schema = client.get_schema_by_id(1).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn can_register_schema_using_basic_auth() {
+        let unregistered =
+            UnregisteredSchema::schema(r#"{"type": "string"}"#).schema_type(SchemaType::Avro);
+
+        let request = MockRequestBuilder::post()
+            .with_path("/subjects/heartbeat/versions")
+            .with_body(&unregistered)
+            .with_basic_auth("sr-username", "sr-password")
+            .with_header("Accept", APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON)
+            .with_header("Content-Type", APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON);
+
+        let response = MockResponseBuilder::status(200)
+            .with_body_file(REGISTER_SUBJECT_RESPONSE_FILE_PATH)
+            .with_header("Content-Type", APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON);
+
+        let sr = MockSchemaRegistry::init_mock(request, response).await;
+
+        let config = SchemaRegistryConfig::new()
+            .url(sr.url())
+            .basic_auth(&"sr-username".to_owned(), &"sr-password".to_owned());
+
+        let client = CachedSchemaRegistryClient::from_conf(config).unwrap();
+
+        let schema = client
+            .register_schema("heartbeat", &unregistered)
+            .await
+            .unwrap();
+
+        assert_eq!(schema.schema_type, SchemaType::Avro);
+        assert_eq!(schema.schema, r#"{"type": "string"}"#);
     }
 }

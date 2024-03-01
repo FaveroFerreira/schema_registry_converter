@@ -44,3 +44,48 @@ pub struct Subject {
     pub schema_type: SchemaType,
     pub schema: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SchemaReference {
+    pub name: String,
+    pub subject: String,
+    pub version: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnregisteredSchema {
+    pub schema: String,
+    pub schema_type: SchemaType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub references: Option<Vec<SchemaReference>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegisteredSchema {
+    pub id: u32,
+}
+
+impl UnregisteredSchema {
+    pub fn schema<T>(schema: T) -> Self
+    where
+        T: Into<String>,
+    {
+        Self {
+            schema: schema.into(),
+            schema_type: SchemaType::Avro,
+            references: None,
+        }
+    }
+
+    pub fn schema_type(mut self, schema_type: SchemaType) -> Self {
+        self.schema_type = schema_type;
+        self
+    }
+
+    pub fn references(mut self, references: Vec<SchemaReference>) -> Self {
+        self.references = Some(references);
+        self
+    }
+}

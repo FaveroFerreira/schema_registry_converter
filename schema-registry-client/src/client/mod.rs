@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use crate::error::SchemaRegistryError;
-use crate::types::{Schema, Version};
+use crate::types::{Schema, UnregisteredSchema, Version};
 
 pub mod cached;
 #[cfg(test)]
@@ -17,6 +17,12 @@ pub trait SchemaRegistryClient: Send + Sync {
     ) -> Result<Schema, SchemaRegistryError>;
 
     async fn get_schema_by_id(&self, id: u32) -> Result<Schema, SchemaRegistryError>;
+
+    async fn register_schema(
+        &self,
+        subject: &str,
+        unregistered: &UnregisteredSchema,
+    ) -> Result<Schema, SchemaRegistryError>;
 
     // TODO: add stuff to register schema
 }
