@@ -1,21 +1,19 @@
-use std::io::Cursor;
 use std::sync::Arc;
 
-use apache_avro::Schema as AvroSchema;
 use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 
 use schema_registry_client::SchemaRegistryClient;
 use schema_registry_serde::{extract_id_and_payload, SchemaRegistryDeserializer};
 
-use crate::AvroDeserializationError;
+use crate::error::JsonDeserializationError;
 
 #[derive(Clone)]
-pub struct SchemaRegistryAvroDeserializer {
+pub struct SchemaRegistryJsonDeserializer {
     schema_registry_client: Arc<dyn SchemaRegistryClient>,
 }
 
-impl SchemaRegistryAvroDeserializer {
+impl SchemaRegistryJsonDeserializer {
     pub fn new(schema_registry_client: Arc<dyn SchemaRegistryClient>) -> Self {
         Self {
             schema_registry_client,
@@ -24,8 +22,8 @@ impl SchemaRegistryAvroDeserializer {
 }
 
 #[async_trait]
-impl SchemaRegistryDeserializer for SchemaRegistryAvroDeserializer {
-    type Error = AvroDeserializationError;
+impl SchemaRegistryDeserializer for SchemaRegistryJsonDeserializer {
+    type Error = JsonDeserializationError;
 
     async fn deserialize<T>(&self, data: Option<&[u8]>) -> Result<T, Self::Error>
     where
@@ -38,13 +36,7 @@ impl SchemaRegistryDeserializer for SchemaRegistryAvroDeserializer {
             .get_schema_by_id(extracted.schema_id)
             .await?;
 
-        // maybe cache a parsed schema?
-        let schema = AvroSchema::parse_str(&schema.schema)?;
-        let mut reader = Cursor::new(extracted.payload);
-
-        let avro_value = apache_avro::from_avro_datum(&schema, &mut reader, None)?;
-
-        let t = apache_avro::from_value(&avro_value)?;
+        let t = serde_json::from_slice(extracted.payload)?;
 
         Ok(t)
     }

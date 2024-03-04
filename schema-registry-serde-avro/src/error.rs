@@ -1,34 +1,10 @@
-use schema_registry_client::SchemaRegistryError;
 use std::error::Error as StdError;
 use std::fmt;
 
+use schema_registry_client::SchemaRegistryError;
+use schema_registry_serde::ExtractError;
+
 pub type BoxError = Box<dyn StdError + Send + Sync>;
-
-pub struct ErrorMessage {
-    pub message: String,
-}
-
-impl ErrorMessage {
-    pub fn new(message: impl Into<String>) -> Self {
-        ErrorMessage {
-            message: message.into(),
-        }
-    }
-}
-
-impl fmt::Display for ErrorMessage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.message)
-    }
-}
-
-impl fmt::Debug for ErrorMessage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "ErrorMessage {{ message: {} }}", self.message)
-    }
-}
-
-impl StdError for ErrorMessage {}
 
 #[derive(Debug)]
 pub struct AvroSerializationError {
@@ -92,8 +68,8 @@ impl From<apache_avro::Error> for AvroDeserializationError {
     }
 }
 
-impl From<ErrorMessage> for AvroDeserializationError {
-    fn from(error: ErrorMessage) -> Self {
+impl From<ExtractError> for AvroDeserializationError {
+    fn from(error: ExtractError) -> Self {
         AvroDeserializationError::new(error)
     }
 }

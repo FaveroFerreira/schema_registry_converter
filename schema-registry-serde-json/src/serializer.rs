@@ -1,21 +1,21 @@
 use std::sync::Arc;
 
-use apache_avro::Schema as AvroSchema;
 use async_trait::async_trait;
 use serde::Serialize;
+use valico::json_schema::Scope;
 
 use schema_registry_client::{SchemaRegistryClient, Version};
 use schema_registry_serde::{
     insert_magic_byte_and_id, SchemaRegistrySerializer, SubjectNameStrategy,
 };
 
-use crate::error::AvroSerializationError;
+use crate::error::JsonDeserializationError;
 
-pub struct SchemaRegistryAvroSerializer {
+pub struct SchemaRegistryJsonSerializer {
     schema_registry_client: Arc<dyn SchemaRegistryClient>,
 }
 
-impl SchemaRegistryAvroSerializer {
+impl SchemaRegistryJsonSerializer {
     pub fn new(schema_registry_client: Arc<dyn SchemaRegistryClient>) -> Self {
         Self {
             schema_registry_client,
@@ -24,8 +24,8 @@ impl SchemaRegistryAvroSerializer {
 }
 
 #[async_trait]
-impl SchemaRegistrySerializer for SchemaRegistryAvroSerializer {
-    type Error = AvroSerializationError;
+impl SchemaRegistrySerializer for SchemaRegistryJsonSerializer {
+    type Error = JsonDeserializationError;
 
     async fn serialize_value<T>(
         &self,
@@ -42,12 +42,11 @@ impl SchemaRegistrySerializer for SchemaRegistryAvroSerializer {
             .get_schema_by_subject(&subject, Version::Latest)
             .await?;
 
-        let avro_schema = AvroSchema::parse_str(&schema.schema)?;
-        let avro_value = apache_avro::to_value(data)?;
+        let bytes = serde_json::to_vec(data)?;
 
-        let data = apache_avro::to_avro_datum(&avro_schema, avro_value)?;
+        let validation_scope = Scope::new();
 
-        Ok(insert_magic_byte_and_id(schema.id, &data))
+        Ok(insert_magic_byte_and_id(schema.id, &bytes))
     }
 
     async fn serialize_key<T>(
@@ -65,11 +64,8 @@ impl SchemaRegistrySerializer for SchemaRegistryAvroSerializer {
             .get_schema_by_subject(&subject, Version::Latest)
             .await?;
 
-        let avro_schema = AvroSchema::parse_str(&schema.schema)?;
-        let avro_value = apache_avro::to_value(data)?;
+        let bytes = serde_json::to_vec(data)?;
 
-        let data = apache_avro::to_avro_datum(&avro_schema, avro_value)?;
-
-        Ok(insert_magic_byte_and_id(schema.id, &data))
+        Ok(insert_magic_byte_and_id(schema.id, &bytes))
     }
 }

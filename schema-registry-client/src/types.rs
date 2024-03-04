@@ -7,14 +7,14 @@ use std::str::FromStr;
 pub enum Version {
     #[default]
     Latest,
-    Version(u32),
+    Number(u32),
 }
 
 impl fmt::Display for Version {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Version::Latest => write!(f, "latest"),
-            Version::Version(version) => write!(f, "{}", version),
+            Version::Number(version) => write!(f, "{}", version),
         }
     }
 }

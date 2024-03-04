@@ -6,7 +6,9 @@ use wiremock::http::Method;
 use wiremock::matchers::{any, basic_auth, body_json, header, method, path, query_param};
 use wiremock::{Mock, MockBuilder, MockServer, ResponseTemplate};
 
-pub const HEARTBEAT_SCHEMA_FILE_PATH: &str = "tests/resources/heartbeat_schema.json";
+pub const HEARTBEAT_SCHEMA_FILE_PATH: &str = "tests/resources/heartbeat_schema_response.json";
+pub const HEARTBEAT_SUCJECT_RESPONSE_FILE_PATH: &str =
+    "tests/resources/heartbeat_subject_response.json";
 pub const REGISTER_SUBJECT_RESPONSE_FILE_PATH: &str =
     "tests/resources/register_subject_response.json";
 
@@ -17,6 +19,7 @@ pub struct MockRequestBuilder {
     body: Option<JsonValue>,
     query: Option<Vec<(String, String)>>,
     basic_auth: Option<(String, String)>,
+    bearer_auth: Option<String>,
     headers: Vec<(String, String)>,
 }
 
@@ -62,7 +65,16 @@ impl MockRequestBuilder {
         self
     }
 
+    pub fn with_bearer_auth(mut self, token: &str) -> Self {
+        self.bearer_auth = Some(token.to_owned());
+        self
+    }
+
     fn build(self) -> MockBuilder {
+        if self.basic_auth.is_some() && self.bearer_auth.is_some() {
+            panic!("Cannot have both basic and bearer auth");
+        }
+
         let mut mock_request = Mock::given(method(self.method));
 
         if let Some(p) = self.path {
@@ -81,6 +93,10 @@ impl MockRequestBuilder {
 
         if let Some((username, password)) = self.basic_auth {
             mock_request = mock_request.and(basic_auth(username, password));
+        }
+
+        if let Some(token) = self.bearer_auth {
+            mock_request = mock_request.and(header("Authorization", format!("Bearer {}", token)));
         }
 
         for (k, v) in self.headers {
@@ -156,6 +172,10 @@ impl MockSchemaRegistry {
 
     pub fn url(&self) -> String {
         self.server.uri()
+    }
+
+    pub async fn received_requests(&self) -> Vec<wiremock::Request> {
+        self.server.received_requests().await.unwrap_or_default()
     }
 }
 

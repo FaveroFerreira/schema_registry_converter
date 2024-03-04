@@ -267,10 +267,10 @@ mod tests {
     use crate::client::cached::APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON;
     use crate::client::test_util::{
         MockRequestBuilder, MockResponseBuilder, MockSchemaRegistry, HEARTBEAT_SCHEMA_FILE_PATH,
-        REGISTER_SUBJECT_RESPONSE_FILE_PATH,
+        HEARTBEAT_SUCJECT_RESPONSE_FILE_PATH, REGISTER_SUBJECT_RESPONSE_FILE_PATH,
     };
     use crate::types::{SchemaType, UnregisteredSchema};
-    use crate::{CachedSchemaRegistryClient, SchemaRegistryClient, SchemaRegistryConfig};
+    use crate::{CachedSchemaRegistryClient, SchemaRegistryClient, SchemaRegistryConfig, Version};
 
     mod http_components_tests {
         use http::response::Builder;
@@ -299,7 +299,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn should_have_great_messages_to_help_debug_errors() {
+        async fn should_have_great_error_messages_to_help_debug_errors() {
             let builder = Builder::new()
                 .status(200)
                 .body(Body::from(r#"{ "malformed json" }"#))
@@ -346,7 +346,57 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn can_get_schema_using_basic_auth() {
+    async fn can_get_schema_by_subject_and_version() {
+        let subject = "heartbeat";
+        let version = Version::Number(5);
+
+        let request = MockRequestBuilder::get()
+            .with_path("/subjects/heartbeat/versions/5")
+            .with_header("Accept", APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON);
+
+        let response = MockResponseBuilder::status(200)
+            .with_header("Content-Type", APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON)
+            .with_body_file(HEARTBEAT_SUCJECT_RESPONSE_FILE_PATH);
+
+        let sr = MockSchemaRegistry::init_mock(request, response).await;
+
+        let config = SchemaRegistryConfig::new().url(sr.url());
+
+        let client = CachedSchemaRegistryClient::from_conf(config).unwrap();
+
+        let _schema = client
+            .get_schema_by_subject(&subject, version)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn can_get_schema_by_subject_latest() {
+        let subject = "heartbeat";
+        let version = Version::Latest;
+
+        let request = MockRequestBuilder::get()
+            .with_path("/subjects/heartbeat/versions/latest")
+            .with_header("Accept", APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON);
+
+        let response = MockResponseBuilder::status(200)
+            .with_header("Content-Type", APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON)
+            .with_body_file(HEARTBEAT_SUCJECT_RESPONSE_FILE_PATH);
+
+        let sr = MockSchemaRegistry::init_mock(request, response).await;
+
+        let config = SchemaRegistryConfig::new().url(sr.url());
+
+        let client = CachedSchemaRegistryClient::from_conf(config).unwrap();
+
+        let _schema = client
+            .get_schema_by_subject(&subject, version)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn can_get_avro_schema_with_basic_auth() {
         let request = MockRequestBuilder::get()
             .with_path("/schemas/ids/1")
             .with_query("deleted", "true")
@@ -399,5 +449,91 @@ mod tests {
 
         assert_eq!(schema.schema_type, SchemaType::Avro);
         assert_eq!(schema.schema, r#"{"type": "string"}"#);
+    }
+
+    #[tokio::test]
+    async fn can_register_schema_with_token_auth() {
+        let unregistered =
+            UnregisteredSchema::schema(r#"{"type": "string"}"#).schema_type(SchemaType::Avro);
+
+        let request = MockRequestBuilder::post()
+            .with_path("/subjects/heartbeat/versions")
+            .with_body(&unregistered)
+            .with_bearer_auth("sr-token")
+            .with_header("Accept", APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON)
+            .with_header("Content-Type", APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON);
+
+        let response = MockResponseBuilder::status(200)
+            .with_body_file(REGISTER_SUBJECT_RESPONSE_FILE_PATH)
+            .with_header("Content-Type", APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON);
+
+        let sr = MockSchemaRegistry::init_mock(request, response).await;
+
+        let config = SchemaRegistryConfig::new()
+            .url(sr.url())
+            .bearer_auth(&"sr-token".to_owned());
+
+        let client = CachedSchemaRegistryClient::from_conf(config).unwrap();
+
+        let schema = client
+            .register_schema("heartbeat", &unregistered)
+            .await
+            .unwrap();
+
+        assert_eq!(schema.schema_type, SchemaType::Avro);
+        assert_eq!(schema.schema, r#"{"type": "string"}"#);
+    }
+
+    #[tokio::test]
+    async fn will_get_cache_schema_by_id_after_getting_subject() {
+        let request = MockRequestBuilder::get()
+            .with_path("/subjects/heartbeat/versions/latest")
+            .with_header("Accept", APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON);
+
+        let response = MockResponseBuilder::status(200)
+            .with_header("Content-Type", APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON)
+            .with_body_file(HEARTBEAT_SUCJECT_RESPONSE_FILE_PATH);
+
+        let sr = MockSchemaRegistry::init_mock(request, response).await;
+
+        let config = SchemaRegistryConfig::new().url(sr.url());
+
+        let client = CachedSchemaRegistryClient::from_conf(config).unwrap();
+
+        let schema = client
+            .get_schema_by_subject("heartbeat", Version::Latest)
+            .await
+            .unwrap();
+        let cached_schema = client.get_schema_by_id(1).await.unwrap();
+        let sr_received_requests = sr.received_requests().await;
+
+        assert_eq!(sr_received_requests.len(), 1);
+        assert_eq!(schema, cached_schema);
+    }
+
+    #[tokio::test]
+    async fn will_get_cached_schema_if_it_exists_by_id() {
+        let request = MockRequestBuilder::get()
+            .with_path("/schemas/ids/1")
+            .with_query("deleted", "true")
+            .with_header("Accept", APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON);
+
+        let response = MockResponseBuilder::status(200)
+            .with_header("Content-Type", APPLICATION_VND_SCHEMA_REGISTRY_V1_JSON)
+            .with_body_file(HEARTBEAT_SCHEMA_FILE_PATH);
+
+        let sr = MockSchemaRegistry::init_mock(request, response).await;
+
+        let config = SchemaRegistryConfig::new().url(sr.url());
+
+        let client = CachedSchemaRegistryClient::from_conf(config).unwrap();
+
+        let schema = client.get_schema_by_id(1).await.unwrap();
+        let cached_schema = client.get_schema_by_id(1).await.unwrap();
+
+        let sr_received_requests = sr.received_requests().await;
+
+        assert_eq!(sr_received_requests.len(), 1);
+        assert_eq!(schema, cached_schema);
     }
 }
