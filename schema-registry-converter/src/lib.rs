@@ -1,6 +1,8 @@
 #[cfg(feature = "protobuf")]
 pub mod protobuf {
-    pub use schema_registry_serde_protobuf::*;
+    pub use schema_registry_serde_protobuf::prelude::deserializer::*;
+    pub use schema_registry_serde_protobuf::prelude::error::*;
+    pub use schema_registry_serde_protobuf::prelude::serializer::*;
 }
 
 #[cfg(feature = "json")]

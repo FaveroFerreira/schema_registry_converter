@@ -7,5 +7,8 @@ edition = "2021"
 workspace = true
 
 [dependencies]
-
-
+schema-registry-client = { path = "../schema-registry-client" }
+schema-registry-serde = { path = "../schema-registry-serde" }
+async-trait = "0.1"
+serde = "1.0"
+thiserror = "1.0"

@@ -1,14 +1,17 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+mod deserializer;
+mod error;
+mod serializer;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub mod prelude {
+    pub mod serializer {
+        pub use crate::serializer::SchemaRegistryProtoSerializer;
+    }
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+    pub mod deserializer {
+        pub use crate::deserializer::SchemaRegistryProtoDeserializer;
+    }
+
+    pub mod error {
+        pub use crate::error::{ProtoDeserializationError, ProtoSerializationError};
     }
 }
