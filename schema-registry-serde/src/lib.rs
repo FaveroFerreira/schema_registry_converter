@@ -78,7 +78,7 @@ impl SubjectNameStrategy<'_> {
             SubjectNameStrategy::TopicRecordName(topic, record) => {
                 format!("{}-{}-key", topic, record)
             }
-            SubjectNameStrategy::SubjectName(subject) => format!("{}", subject),
+            SubjectNameStrategy::SubjectName(subject) => subject.to_string(),
         }
     }
 
@@ -89,7 +89,7 @@ impl SubjectNameStrategy<'_> {
             SubjectNameStrategy::TopicRecordName(topic, record) => {
                 format!("{}-{}-value", topic, record)
             }
-            SubjectNameStrategy::SubjectName(subject) => format!("{}", subject),
+            SubjectNameStrategy::SubjectName(subject) => subject.to_string(),
         }
     }
 }

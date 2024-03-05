@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use jsonschema::JSONSchema;
 use serde::Serialize;
-use valico::json_schema::Scope;
 
 use schema_registry_client::{SchemaRegistryClient, Version};
 use schema_registry_serde::{
@@ -42,11 +42,23 @@ impl SchemaRegistrySerializer for SchemaRegistryJsonSerializer {
             .get_schema_by_subject(&subject, Version::Latest)
             .await?;
 
-        let bytes = serde_json::to_vec(data)?;
+        let parsed_schema = serde_json::from_str(&schema.schema).unwrap();
+        let compiled_schema = JSONSchema::compile(&parsed_schema).unwrap();
 
-        let validation_scope = Scope::new();
+        let data = serde_json::to_value(data).unwrap();
 
-        Ok(insert_magic_byte_and_id(schema.id, &bytes))
+        if let Err(e) = compiled_schema.validate(&data) {
+            for error in e {
+                println!("Validation error: {}", error);
+            }
+
+            panic!("Validation error")
+        }
+
+        Ok(insert_magic_byte_and_id(
+            schema.id,
+            &serde_json::to_vec(&data).unwrap(),
+        ))
     }
 
     async fn serialize_key<T>(
@@ -64,8 +76,22 @@ impl SchemaRegistrySerializer for SchemaRegistryJsonSerializer {
             .get_schema_by_subject(&subject, Version::Latest)
             .await?;
 
-        let bytes = serde_json::to_vec(data)?;
+        let parsed_schema = serde_json::from_str(&schema.schema).unwrap();
+        let compiled_schema = JSONSchema::compile(&parsed_schema).unwrap();
 
-        Ok(insert_magic_byte_and_id(schema.id, &bytes))
+        let data = serde_json::to_value(data).unwrap();
+
+        if let Err(e) = compiled_schema.validate(&data) {
+            for error in e {
+                println!("Validation error: {}", error);
+            }
+
+            panic!("Validation error");
+        }
+
+        Ok(insert_magic_byte_and_id(
+            schema.id,
+            &serde_json::to_vec(&data).unwrap(),
+        ))
     }
 }

@@ -10,13 +10,13 @@ use crate::error::JsonDeserializationError;
 
 #[derive(Clone)]
 pub struct SchemaRegistryJsonDeserializer {
-    schema_registry_client: Arc<dyn SchemaRegistryClient>,
+    _schema_registry_client: Arc<dyn SchemaRegistryClient>,
 }
 
 impl SchemaRegistryJsonDeserializer {
     pub fn new(schema_registry_client: Arc<dyn SchemaRegistryClient>) -> Self {
         Self {
-            schema_registry_client,
+            _schema_registry_client: schema_registry_client,
         }
     }
 }
@@ -30,11 +30,6 @@ impl SchemaRegistryDeserializer for SchemaRegistryJsonDeserializer {
         T: DeserializeOwned,
     {
         let extracted = extract_id_and_payload(data)?;
-
-        let schema = self
-            .schema_registry_client
-            .get_schema_by_id(extracted.schema_id)
-            .await?;
 
         let t = serde_json::from_slice(extracted.payload)?;
 
