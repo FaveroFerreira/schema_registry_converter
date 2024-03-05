@@ -8,7 +8,7 @@ use serde::de::DeserializeOwned;
 use schema_registry_client::SchemaRegistryClient;
 use schema_registry_serde::{extract_id_and_payload, SchemaRegistryDeserializer};
 
-use crate::AvroDeserializationError;
+use crate::error::AvroDeserializationError;
 
 #[derive(Clone)]
 pub struct SchemaRegistryAvroDeserializer {

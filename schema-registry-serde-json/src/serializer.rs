@@ -9,7 +9,7 @@ use schema_registry_serde::{
     insert_magic_byte_and_id, SchemaRegistrySerializer, SubjectNameStrategy,
 };
 
-use crate::JsonSerializationError;
+use crate::error::JsonSerializationError;
 
 pub struct SchemaRegistryJsonSerializer {
     schema_registry_client: Arc<dyn SchemaRegistryClient>,

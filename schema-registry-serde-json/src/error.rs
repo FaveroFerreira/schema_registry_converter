@@ -1,16 +1,27 @@
+use std::borrow::Cow;
+use std::error::Error as StdError;
+
 use jsonschema::paths::PathChunk;
 use jsonschema::{ErrorIterator, ValidationError};
 use serde_json::Value;
-use std::borrow::Cow;
-use std::error::Error as StdError;
-use std::fmt;
-
 use thiserror::Error as ThisError;
 
 use schema_registry_client::SchemaRegistryError;
 use schema_registry_serde::ExtractError;
 
 pub type BoxError = Box<dyn StdError + Send + Sync>;
+
+#[derive(Debug, ThisError)]
+pub enum JsonDeserializationError {
+    #[error(transparent)]
+    SchemaRegistry(#[from] SchemaRegistryError),
+    #[error("Error extracting schema id and payload from message bytes: {0}")]
+    Extract(#[from] ExtractError),
+    #[error("Parse error: {0}")]
+    Parse(#[from] serde_json::Error),
+    #[error(transparent)]
+    Other(#[from] BoxError),
+}
 
 #[derive(Debug, ThisError)]
 pub enum JsonSerializationError {
@@ -76,48 +87,5 @@ impl From<ValidationError<'_>> for SchemaValidationError {
             expected: expected_type.into(),
             at: path.into(),
         }
-    }
-}
-
-#[derive(Debug)]
-pub struct JsonDeserializationError {
-    source: BoxError,
-}
-
-impl JsonDeserializationError {
-    pub fn new(source: impl StdError + Send + Sync + 'static) -> Self {
-        JsonDeserializationError {
-            source: Box::new(source),
-        }
-    }
-}
-
-impl From<SchemaRegistryError> for JsonDeserializationError {
-    fn from(error: SchemaRegistryError) -> Self {
-        JsonDeserializationError::new(error)
-    }
-}
-
-impl From<serde_json::Error> for JsonDeserializationError {
-    fn from(error: serde_json::Error) -> Self {
-        JsonDeserializationError::new(error)
-    }
-}
-
-impl From<ExtractError> for JsonDeserializationError {
-    fn from(error: ExtractError) -> Self {
-        JsonDeserializationError::new(error)
-    }
-}
-
-impl StdError for JsonDeserializationError {
-    fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        Some(&*self.source)
-    }
-}
-
-impl fmt::Display for JsonDeserializationError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Json deserialization error: {}", self.source)
     }
 }

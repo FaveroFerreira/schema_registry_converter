@@ -10,9 +10,10 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
-use schema_registry_converter::client::CachedSchemaRegistryClient;
-use schema_registry_converter::serde::avro::{SchemaRegistryAvroSerializer, SubjectNameStrategy};
-use schema_registry_converter::serde::SchemaRegistrySerializer;
+use schema_registry_converter::avro::SchemaRegistryAvroSerializer;
+use schema_registry_converter::{
+    CachedSchemaRegistryClient, SchemaRegistrySerializer, SubjectNameStrategy,
+};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -24,7 +25,7 @@ async fn main() -> anyhow::Result<()> {
     let ser = create_serializer()?;
     let producer = create_producer()?;
 
-    let topic = "example.account-created";
+    let topic = "avro.account-created";
     let strategy = SubjectNameStrategy::TopicName(&topic);
 
     for i in 0..10 {

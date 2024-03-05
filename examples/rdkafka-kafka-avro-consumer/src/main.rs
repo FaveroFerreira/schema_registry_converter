@@ -10,9 +10,8 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
-use schema_registry_converter::client::CachedSchemaRegistryClient;
-use schema_registry_converter::serde::avro::SchemaRegistryAvroDeserializer;
-use schema_registry_converter::serde::SchemaRegistryDeserializer;
+use schema_registry_converter::avro::SchemaRegistryAvroDeserializer;
+use schema_registry_converter::{CachedSchemaRegistryClient, SchemaRegistryDeserializer};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -24,7 +23,7 @@ async fn main() -> anyhow::Result<()> {
     let de = create_deserializer()?;
 
     let consumer = create_consumer()?;
-    consumer.subscribe(&["example.account-created"])?;
+    consumer.subscribe(&["avro.account-created"])?;
 
     let mut stream = consumer.stream();
 

@@ -1,0 +1,6 @@
+{
+  "name": "UserId",
+  "namespace": "example",
+  "type": "string",
+  "logicalType": "uuid"
+}

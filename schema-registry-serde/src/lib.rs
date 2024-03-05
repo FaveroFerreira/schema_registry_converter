@@ -1,3 +1,7 @@
+//! # Schema Registry Serde
+//!
+//! This crate provides the core types and traits for working schema registry serialization and deserialization.
+
 use std::error::Error as StdError;
 use std::fmt::{Display, Formatter};
 use std::ops::Range;
@@ -10,11 +14,15 @@ pub const MAGIC_BYTE: u8 = 0;
 pub const ENCODED_ID_RANGE: Range<usize> = 1..5;
 pub const PAYLOAD_OFFSET: usize = 5;
 
+/// Extracted schema id and payload from a message
+///
+/// This struct represents the result of extracting a schema id and payload from a message.
 pub struct Extracted<'a> {
     pub schema_id: u32,
     pub payload: &'a [u8],
 }
 
+/// Possible errors that can occur when extracting a schema id and payload from a message
 #[derive(Debug, Clone, Copy)]
 pub enum ExtractError {
     EmptyData,
@@ -34,6 +42,13 @@ impl Display for ExtractError {
 
 impl StdError for ExtractError {}
 
+/// This is a helper function to extract a schema id and payload from a message
+///
+/// # Arguments
+/// * `data` - The data to extract the schema id and payload from, it can be Kafka Key or Value.
+///
+/// # Errors
+/// This function returns an error if the data is empty, the magic byte is invalid or the data length is invalid.
 pub fn extract_id_and_payload(data: Option<&[u8]>) -> Result<Extracted<'_>, ExtractError> {
     let data = data.ok_or(ExtractError::EmptyData)?;
 
@@ -54,6 +69,15 @@ pub fn extract_id_and_payload(data: Option<&[u8]>) -> Result<Extracted<'_>, Extr
     })
 }
 
+/// This is a helper function to insert a schema id and payload into a message
+///
+/// # Arguments
+/// * `id` - The schema id to insert into the message
+/// * `payload` - The payload to insert into the message
+///
+/// # Returns
+///
+/// A new Vec<u8> with the schema id and payload inserted
 pub fn insert_magic_byte_and_id(id: u32, payload: &[u8]) -> Vec<u8> {
     let mut buf = vec![0u8; 5];
     buf[0] = MAGIC_BYTE;
@@ -62,6 +86,35 @@ pub fn insert_magic_byte_and_id(id: u32, payload: &[u8]) -> Vec<u8> {
     buf
 }
 
+/// This enum represents the different strategies to use when manipulating a subject in the schema registry
+///
+/// The strategies are:
+/// * `TopicName` - Use the topic name as the subject
+/// * `RecordName` - Use the record name as the subject
+/// * `TopicRecordName` - Use the topic and record name as the subject
+/// * `SubjectName` - Use the subject name as the subject
+///
+///
+/// # Example
+///
+/// ```
+/// use schema_registry_serde::SubjectNameStrategy;
+///
+/// let topic_name = SubjectNameStrategy::TopicName("account.created");
+/// let record_name = SubjectNameStrategy::RecordName("AccountCreatedDTO");
+/// let topic_record_name = SubjectNameStrategy::TopicRecordName("account.created", "AccountCreatedDTO");
+/// let subject_name = SubjectNameStrategy::SubjectName("account.created");
+///
+/// assert_eq!(topic_name.key(), "account.created-key");
+/// assert_eq!(record_name.key(), "AccountCreatedDTO-key");
+/// assert_eq!(topic_record_name.key(), "account.created-AccountCreatedDTO-key");
+/// assert_eq!(subject_name.key(), "account.created");
+///
+/// assert_eq!(topic_name.value(), "account.created-value");
+/// assert_eq!(record_name.value(), "AccountCreatedDTO-value");
+/// assert_eq!(topic_record_name.value(), "account.created-AccountCreatedDTO-value");
+/// assert_eq!(subject_name.value(), "account.created");
+/// ```
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum SubjectNameStrategy<'a> {
     TopicName(&'a str),
@@ -94,6 +147,7 @@ impl SubjectNameStrategy<'_> {
     }
 }
 
+/// This trait represents the ability to serialize a key or value to a byte array, using a specific subject name strategy.
 #[async_trait]
 pub trait SchemaRegistrySerializer: Send + Sync {
     type Error: StdError + Send + Sync;
@@ -115,6 +169,7 @@ pub trait SchemaRegistrySerializer: Send + Sync {
         T: Serialize + Send + Sync;
 }
 
+/// This trait represents the ability to deserialize a key or value from a byte array.
 #[async_trait]
 pub trait SchemaRegistryDeserializer: Send + Sync {
     type Error: StdError + Send + Sync;

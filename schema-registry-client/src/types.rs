@@ -1,5 +1,6 @@
 use crate::SchemaRegistryError;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::fmt;
 use std::str::FromStr;
 
@@ -54,7 +55,7 @@ impl FromStr for SchemaType {
 #[derive(Debug, Clone, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct StringSchema {
-    pub schema: String,
+    pub schema: Cow<'static, str>,
     #[serde(default)]
     pub schema_type: SchemaType,
 }
@@ -65,7 +66,7 @@ pub struct Schema {
     pub id: u32,
     #[serde(default)]
     pub schema_type: SchemaType,
-    pub schema: String,
+    pub schema: Cow<'static, str>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -76,7 +77,7 @@ pub struct Subject {
     pub version: u32,
     #[serde(default)]
     pub schema_type: SchemaType,
-    pub schema: String,
+    pub schema: Cow<'static, str>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,6 +86,7 @@ pub struct SchemaReference {
     pub name: String,
     pub subject: String,
     pub version: u32,
+    pub references: Vec<SchemaReference>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -10,9 +10,8 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
-use schema_registry_converter::client::CachedSchemaRegistryClient;
-use schema_registry_converter::serde::json::SchemaRegistryJsonDeserializer;
-use schema_registry_converter::serde::SchemaRegistryDeserializer;
+use schema_registry_converter::json::SchemaRegistryJsonDeserializer;
+use schema_registry_converter::{CachedSchemaRegistryClient, SchemaRegistryDeserializer};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

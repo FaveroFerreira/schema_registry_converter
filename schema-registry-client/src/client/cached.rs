@@ -208,7 +208,7 @@ impl SchemaRegistryClient for CachedSchemaRegistryClient {
         let schema = Schema {
             id: registered_schema.id,
             schema_type: unregistered.schema_type,
-            schema: unregistered.schema.clone(),
+            schema: unregistered.schema.clone().into(),
         };
 
         self.insert_id_cache(registered_schema.id, schema.clone())

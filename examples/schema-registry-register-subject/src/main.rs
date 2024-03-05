@@ -19,22 +19,37 @@ async fn main() -> anyhow::Result<()> {
 
     let mut subject_schema = Vec::new();
 
-    let paths = fs::read_dir("./tools/schemas/avro").context("Failed to read directory")?;
+    let folders = [(
+        SchemaType::Avro,
+        ["./tools/schemas/avro/references", "./tools/schemas/avro"],
+    )];
 
-    for path in paths {
-        let path = path.unwrap().path();
+    for (schema_type, paths) in folders.iter() {
+        for path in paths.iter() {
+            let paths = fs::read_dir(path).context("Failed to read directory")?;
 
-        let subject = path
-            .file_stem()
-            .context("Failed to get file stem")?
-            .to_str()
-            .context("Failed to convert to string")?
-            .to_string();
+            for path in paths {
+                let path = path.unwrap().path();
 
-        let schema_str = fs::read_to_string(path)?;
-        let schema = UnregisteredSchema::schema(&schema_str).schema_type(SchemaType::Avro);
+                if path.is_dir() {
+                    continue;
+                }
 
-        subject_schema.push((subject, schema));
+                let subject = path
+                    .file_stem()
+                    .context("Failed to get file stem")?
+                    .to_str()
+                    .context("Failed to convert to string")?
+                    .to_string();
+
+                let schema_str = fs::read_to_string(path)?;
+                let schema = UnregisteredSchema::schema(&schema_str)
+                    .references()
+                    .schema_type(*schema_type);
+
+                subject_schema.push((subject, schema));
+            }
+        }
     }
 
     let client = CachedSchemaRegistryClient::from_url("http://localhost:8081")?;
