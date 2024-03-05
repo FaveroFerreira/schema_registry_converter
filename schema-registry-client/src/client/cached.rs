@@ -365,7 +365,7 @@ mod tests {
         let client = CachedSchemaRegistryClient::from_conf(config).unwrap();
 
         let _schema = client
-            .get_schema_by_subject(&subject, version)
+            .get_schema_by_subject(subject, version)
             .await
             .unwrap();
     }
@@ -390,7 +390,7 @@ mod tests {
         let client = CachedSchemaRegistryClient::from_conf(config).unwrap();
 
         let _schema = client
-            .get_schema_by_subject(&subject, version)
+            .get_schema_by_subject(subject, version)
             .await
             .unwrap();
     }
