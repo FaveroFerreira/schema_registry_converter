@@ -9,7 +9,7 @@ use schema_registry_serde::{
     insert_magic_byte_and_id, SchemaRegistrySerializer, SubjectNameStrategy,
 };
 
-use crate::error::JsonDeserializationError;
+use crate::JsonSerializationError;
 
 pub struct SchemaRegistryJsonSerializer {
     schema_registry_client: Arc<dyn SchemaRegistryClient>,
@@ -25,7 +25,7 @@ impl SchemaRegistryJsonSerializer {
 
 #[async_trait]
 impl SchemaRegistrySerializer for SchemaRegistryJsonSerializer {
-    type Error = JsonDeserializationError;
+    type Error = JsonSerializationError;
 
     async fn serialize_value<T>(
         &self,
@@ -42,23 +42,17 @@ impl SchemaRegistrySerializer for SchemaRegistryJsonSerializer {
             .get_schema_by_subject(&subject, Version::Latest)
             .await?;
 
-        let parsed_schema = serde_json::from_str(&schema.schema).unwrap();
-        let compiled_schema = JSONSchema::compile(&parsed_schema).unwrap();
+        let parsed_schema = serde_json::from_str(&schema.schema)?;
+        let compiled_schema = JSONSchema::compile(&parsed_schema)?;
 
-        let data = serde_json::to_value(data).unwrap();
+        let data = serde_json::to_value(data)?;
+        let bytes = serde_json::to_vec(&data)?;
 
-        if let Err(e) = compiled_schema.validate(&data) {
-            for error in e {
-                println!("Validation error: {}", error);
-            }
+        compiled_schema
+            .validate(&data)
+            .map_err(JsonSerializationError::from)?;
 
-            panic!("Validation error")
-        }
-
-        Ok(insert_magic_byte_and_id(
-            schema.id,
-            &serde_json::to_vec(&data).unwrap(),
-        ))
+        Ok(insert_magic_byte_and_id(schema.id, &bytes))
     }
 
     async fn serialize_key<T>(
@@ -76,22 +70,16 @@ impl SchemaRegistrySerializer for SchemaRegistryJsonSerializer {
             .get_schema_by_subject(&subject, Version::Latest)
             .await?;
 
-        let parsed_schema = serde_json::from_str(&schema.schema).unwrap();
-        let compiled_schema = JSONSchema::compile(&parsed_schema).unwrap();
+        let parsed_schema = serde_json::from_str(&schema.schema)?;
+        let compiled_schema = JSONSchema::compile(&parsed_schema)?;
 
-        let data = serde_json::to_value(data).unwrap();
+        let data = serde_json::to_value(data)?;
+        let bytes = serde_json::to_vec(&data)?;
 
-        if let Err(e) = compiled_schema.validate(&data) {
-            for error in e {
-                println!("Validation error: {}", error);
-            }
+        compiled_schema
+            .validate(&data)
+            .map_err(JsonSerializationError::from)?;
 
-            panic!("Validation error");
-        }
-
-        Ok(insert_magic_byte_and_id(
-            schema.id,
-            &serde_json::to_vec(&data).unwrap(),
-        ))
+        Ok(insert_magic_byte_and_id(schema.id, &bytes))
     }
 }
