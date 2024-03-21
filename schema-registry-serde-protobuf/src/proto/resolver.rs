@@ -51,7 +51,6 @@ enum Event {
     Package(String),
     Message(Message),
     Enum(Enum),
-    RpcService(()),
     Extend(Extend),
     Ignore,
 }
@@ -550,7 +549,6 @@ pub fn proto_resolver<'a>(
                         Event::Package(p) => desc.package = p,
                         Event::Message(m) => desc.messages.push(m),
                         Event::Enum(e) => desc.enums.push(e),
-                        Event::RpcService(r) => {}
                         Event::Extend(e) => desc.extends.push(e),
                         Event::Ignore => (),
                     }

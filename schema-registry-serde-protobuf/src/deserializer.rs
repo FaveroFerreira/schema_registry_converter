@@ -6,7 +6,7 @@ use serde::de::DeserializeOwned;
 use schema_registry_client::SchemaRegistryClient;
 use schema_registry_serde::{extract_id_and_payload, SchemaRegistryDeserializer};
 
-use crate::error::ProtoDeserializationError;
+use crate::{error::ProtoDeserializationError, proto::ProtoSchema};
 
 pub struct SchemaRegistryProtoDeserializer {
     schema_registry_client: Arc<dyn SchemaRegistryClient>,
@@ -22,12 +22,12 @@ impl SchemaRegistryDeserializer for SchemaRegistryProtoDeserializer {
     {
         let extracted = extract_id_and_payload(data)?;
 
-        let _ = self
+        let schema = self
             .schema_registry_client
             .get_schema_by_id(extracted.schema_id)
             .await?;
 
-        // maybe cache a parsed schema?
+        let _proto_schema = ProtoSchema::parse(&schema.schema).unwrap();
 
         todo!()
     }

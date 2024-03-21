@@ -1,8 +1,4 @@
-use std::collections::HashMap;
-use std::fmt;
-use std::fs::File;
-use std::io::{BufReader, BufWriter, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use crate::proto::resolver::proto_resolver;
 
@@ -21,7 +17,6 @@ pub enum Modifier {
     Repeated,
     Required,
     Map,
-    Default,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
