@@ -1,5 +1,6 @@
 mod deserializer;
 mod error;
+mod proto;
 mod serializer;
 
 pub mod prelude {

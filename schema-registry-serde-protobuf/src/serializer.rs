@@ -13,8 +13,8 @@ impl SchemaRegistrySerializer for SchemaRegistryProtoSerializer {
 
     async fn serialize_value<T>(
         &self,
-        strategy: SubjectNameStrategy<'_>,
-        data: &T,
+        _strategy: SubjectNameStrategy<'_>,
+        _data: &T,
     ) -> Result<Vec<u8>, Self::Error>
     where
         T: Serialize + Send + Sync,
@@ -24,8 +24,8 @@ impl SchemaRegistrySerializer for SchemaRegistryProtoSerializer {
 
     async fn serialize_key<T>(
         &self,
-        strategy: SubjectNameStrategy<'_>,
-        data: &T,
+        _strategy: SubjectNameStrategy<'_>,
+        _data: &T,
     ) -> Result<Vec<u8>, Self::Error>
     where
         T: Serialize + Send + Sync,

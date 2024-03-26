@@ -9,6 +9,10 @@ workspace = true
 [dependencies]
 schema-registry-client = { path = "../schema-registry-client" }
 schema-registry-serde = { path = "../schema-registry-serde" }
+dashmap = "5.5"
 async-trait = "0.1"
 serde = "1.0"
 thiserror = "1.0"
+logos = "0.14"
+protofish = "0.5"
+nom = "7.1"
