@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use serde::Serialize;
 
-use schema_registry_serde::{SchemaRegistrySerializer, SubjectNameStrategy};
+use schema_registry_serde::SchemaRegistrySerializer;
+use schema_registry_serde::SubjectNameStrategy;
 
 use crate::error::ProtoSerializationError;
 

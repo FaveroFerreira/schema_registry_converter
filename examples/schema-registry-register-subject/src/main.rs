@@ -6,7 +6,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
-use schema_registry_converter::client::{
+use schema_registry_converter::{
     CachedSchemaRegistryClient, SchemaRegistryClient, SchemaType, UnregisteredSchema,
 };
 
@@ -43,9 +43,7 @@ async fn main() -> anyhow::Result<()> {
                     .to_string();
 
                 let schema_str = fs::read_to_string(path)?;
-                let schema = UnregisteredSchema::schema(&schema_str)
-                    .references()
-                    .schema_type(*schema_type);
+                let schema = UnregisteredSchema::schema(&schema_str).schema_type(*schema_type);
 
                 subject_schema.push((subject, schema));
             }

@@ -3,10 +3,10 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use schema_registry_converter::client::{
+use schema_registry_converter::avro::SchemaRegistryAvroDeserializer;
+use schema_registry_converter::{
     Schema, SchemaRegistryClient, SchemaRegistryError, UnregisteredSchema, Version,
 };
-use schema_registry_converter::serde::avro::SchemaRegistryAvroDeserializer;
 
 pub struct MySchemaRegistryClient {
     // ...

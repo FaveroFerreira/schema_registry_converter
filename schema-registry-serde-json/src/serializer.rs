@@ -5,9 +5,9 @@ use jsonschema::JSONSchema;
 use serde::Serialize;
 
 use schema_registry_client::{SchemaRegistryClient, Version};
-use schema_registry_serde::{
-    insert_magic_byte_and_id, SchemaRegistrySerializer, SubjectNameStrategy,
-};
+use schema_registry_serde::insert_magic_byte_and_id;
+use schema_registry_serde::SchemaRegistrySerializer;
+use schema_registry_serde::SubjectNameStrategy;
 
 use crate::error::JsonSerializationError;
 

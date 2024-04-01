@@ -55,12 +55,14 @@ fn on_account_created(pair: (ExampleAccountCreatedMetadata, ExampleAccountCreate
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(unused)]
 struct ExampleAccountCreatedMetadata {
     tenant: String,
     source: String,
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(unused)]
 struct ExampleAccountCreated {
     username: String,
     password: String,

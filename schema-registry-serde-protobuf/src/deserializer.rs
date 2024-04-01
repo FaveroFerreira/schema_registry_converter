@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use std::sync::Arc;
 
 use serde::de::DeserializeOwned;
@@ -11,6 +12,7 @@ pub struct SchemaRegistryProtoDeserializer {
     schema_registry_client: Arc<dyn SchemaRegistryClient>,
 }
 
+#[async_trait]
 impl SchemaRegistryDeserializer for SchemaRegistryProtoDeserializer {
     type Error = ProtoDeserializationError;
 

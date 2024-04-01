@@ -11,7 +11,8 @@ use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
 use schema_registry_converter::avro::SchemaRegistryAvroDeserializer;
-use schema_registry_converter::{CachedSchemaRegistryClient, SchemaRegistryDeserializer};
+use schema_registry_converter::CachedSchemaRegistryClient;
+use schema_registry_converter::SchemaRegistryDeserializer;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
