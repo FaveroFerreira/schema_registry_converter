@@ -1,0 +1,20 @@
+{
+  "namespace": "com.github.schemaregistryconverter.avro.schema",
+  "type": "record",
+  "name": "Author",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "name",
+      "type": "string"
+    },
+    {
+      "name":"email",
+      "type": ["null", "string"],
+      "default": null
+    }
+  ]
+}

@@ -24,7 +24,7 @@ async fn main() -> anyhow::Result<()> {
     let de = create_deserializer()?;
 
     let consumer = create_consumer()?;
-    consumer.subscribe(&["avro.account-created"])?;
+    consumer.subscribe(&["test.avro.book"])?;
 
     let mut stream = consumer.stream();
 
@@ -34,7 +34,7 @@ async fn main() -> anyhow::Result<()> {
 
         match try_join(key, value).await {
             Ok(pair) => {
-                on_account_created(pair);
+                handle_message(pair);
             }
             Err(e) => {
                 error!("Failed to deserialize message: {:?}", e);
@@ -47,27 +47,40 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[instrument(name = "on_account_created", skip(pair))]
-fn on_account_created(pair: (ExampleAccountCreatedMetadata, ExampleAccountCreated)) {
-    info!("Received account created event");
+#[instrument(name = "on_book_event", skip(pair))]
+fn handle_message(pair: (BookMetadata, Book)) {
+    info!("Received book event");
 
     info!("Metadata: {:?}", pair.0);
     info!("Value: {:?}", pair.1);
 }
 
 #[derive(Debug, Deserialize)]
-#[allow(unused)]
-struct ExampleAccountCreatedMetadata {
-    tenant: String,
-    source: String,
+#[serde(rename_all = "snake_case")]
+pub enum Language {
+    PtBr,
+    EnUs,
+    EsEs,
 }
 
 #[derive(Debug, Deserialize)]
-#[allow(unused)]
-struct ExampleAccountCreated {
-    username: String,
-    password: String,
-    nickname: Option<String>,
+pub struct BookMetadata {
+    pub language: Language,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Book {
+    pub id: i32,
+    pub title: String,
+    pub author: Author,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Author {
+    pub id: i32,
+    pub name: String,
+    pub email: Option<String>,
 }
 
 fn create_consumer() -> anyhow::Result<StreamConsumer> {

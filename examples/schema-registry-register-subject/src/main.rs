@@ -1,14 +1,11 @@
 use std::fs;
 
-use anyhow::Context;
 use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
-use schema_registry_converter::{
-    CachedSchemaRegistryClient, SchemaRegistryClient, SchemaType, UnregisteredSchema,
-};
+use schema_registry_converter::{CachedSchemaRegistryClient, SchemaReference, SchemaRegistryClient, SchemaType, UnregisteredSchema, Version};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -17,45 +14,49 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let mut subject_schema = Vec::new();
+    let sr = CachedSchemaRegistryClient::from_url("http://localhost:8081")?;
 
-    let folders = [(
-        SchemaType::Avro,
-        ["./tools/schemas/avro/references", "./tools/schemas/avro"],
-    )];
+    avro_key(&sr).await?;
+    avro_value(&sr).await?;
 
-    for (schema_type, paths) in folders.iter() {
-        for path in paths.iter() {
-            let paths = fs::read_dir(path).context("Failed to read directory")?;
+    Ok(())
+}
 
-            for path in paths {
-                let path = path.unwrap().path();
+async fn avro_key(sr: &CachedSchemaRegistryClient) -> anyhow::Result<()> {
+    let book_metadata = fs::read_to_string("./tools/schemas/avro/book-metadata.avsc")?;
+    let metadata = UnregisteredSchema::schema(&book_metadata).schema_type(SchemaType::Avro);
 
-                if path.is_dir() {
-                    continue;
-                }
+    let _ = sr.register_schema("test.avro.book-key", &metadata).await?;
 
-                let subject = path
-                    .file_stem()
-                    .context("Failed to get file stem")?
-                    .to_str()
-                    .context("Failed to convert to string")?
-                    .to_string();
+    let schema = sr.get_schema_by_subject("test.avro.book-key", Version::Latest).await?;
 
-                let schema_str = fs::read_to_string(path)?;
-                let schema = UnregisteredSchema::schema(&schema_str).schema_type(*schema_type);
+    info!("Book Key: {:?}", schema);
 
-                subject_schema.push((subject, schema));
-            }
-        }
-    }
+    Ok(())
+}
 
-    let client = CachedSchemaRegistryClient::from_url("http://localhost:8081")?;
+#[tracing::instrument(skip(sr))]
+async fn avro_value(sr: &CachedSchemaRegistryClient) -> anyhow::Result<()> {
+    let author_content = fs::read_to_string("./tools/schemas/avro/author-value.avsc")?;
+    let author = UnregisteredSchema::schema(&author_content).schema_type(SchemaType::Avro);
 
-    for (subject, schema) in subject_schema {
-        let schema = client.register_schema(&subject, &schema).await?;
-        info!("Registered schema with id: {}", schema.id);
-    }
+    let _ = sr.register_schema("test.avro.author-value", &author).await?;
+
+    let book_content = fs::read_to_string("./tools/schemas/avro/book-value.avsc")?;
+    let book = UnregisteredSchema::schema(&book_content).schema_type(SchemaType::Avro).references(
+        vec![SchemaReference {
+            name: String::from("Author"),
+            subject: String::from("test.avro.author-value"),
+            version: 1,
+            references: None,
+        }]
+    );
+
+    let _ = sr.register_schema("test.avro.book-value", &book).await?;
+
+    let schema = sr.get_schema_by_subject("test.avro.book-value", Version::Latest).await?;
+
+    info!("Book Value: {:?}", schema);
 
     Ok(())
 }

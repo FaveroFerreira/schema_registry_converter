@@ -14,6 +14,9 @@ pub enum AvroSerializationError {
 
 #[derive(Debug, ThisError)]
 pub enum AvroDeserializationError {
+    #[error("Schema not found")]
+    SchemaNotFound,
+
     #[error(transparent)]
     SchemaRegistry(#[from] SchemaRegistryError),
 

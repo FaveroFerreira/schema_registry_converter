@@ -1,0 +1,9 @@
+@subject_name = test.avro.book
+@schema_id = 5
+
+
+### GET schema by subject
+GET http://localhost:8081/subjects/{{subject_name}}/versions/latest
+
+### GET schema by id
+GET http://localhost:8081/schemas/ids/{{schema_id}}

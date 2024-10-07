@@ -84,6 +84,7 @@ impl CachedSchemaRegistryClient {
                 id: subject.id,
                 schema_type: subject.schema_type,
                 schema: subject.schema.clone(),
+                references: subject.references.clone(),
             },
         )
         .await;
@@ -132,6 +133,7 @@ impl SchemaRegistryClient for CachedSchemaRegistryClient {
             id: subject.id,
             schema_type: subject.schema_type,
             schema: subject.schema,
+            references: subject.references
         })
     }
 
@@ -160,12 +162,13 @@ impl SchemaRegistryClient for CachedSchemaRegistryClient {
             })
             .collect();
 
-        let string_schema = exec_http_calls(calls).await?;
+        let response = exec_http_calls(calls).await?;
 
         let schema = Schema {
             id,
-            schema_type: string_schema.schema_type,
-            schema: string_schema.schema,
+            schema_type: response.schema_type,
+            schema: response.schema,
+            references: response.references,
         };
 
         self.insert_id_cache(id, schema.clone()).await;
@@ -177,7 +180,7 @@ impl SchemaRegistryClient for CachedSchemaRegistryClient {
         &self,
         subject: &str,
         unregistered: &UnregisteredSchema,
-    ) -> Result<Schema, SchemaRegistryError> {
+    ) -> Result<u32, SchemaRegistryError> {
         let calls = self
             .urls
             .iter()
@@ -205,16 +208,7 @@ impl SchemaRegistryClient for CachedSchemaRegistryClient {
 
         let registered_schema = exec_http_calls(calls).await?;
 
-        let schema = Schema {
-            id: registered_schema.id,
-            schema_type: unregistered.schema_type,
-            schema: unregistered.schema.clone().into(),
-        };
-
-        self.insert_id_cache(registered_schema.id, schema.clone())
-            .await;
-
-        Ok(schema)
+        Ok(registered_schema.id)
     }
 }
 
@@ -253,11 +247,11 @@ async fn parse_response<T: DeserializeOwned>(
             }
         },
         _ => {
-            return Err(HttpCallError::UpstreamError {
+            Err(HttpCallError::UpstreamError {
                 url: host,
                 status: status.as_u16(),
                 body: String::from_utf8_lossy(&bytes).to_string(),
-            });
+            })
         }
     }
 }

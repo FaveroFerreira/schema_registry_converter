@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+import "author-value.proto";
+
+package com.github.schemaregistryconverter.proto.schema;
+
+message Book {
+  int64 id = 1;
+  string title = 2;
+  Author author = 3;
+}

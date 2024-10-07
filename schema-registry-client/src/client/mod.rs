@@ -22,7 +22,5 @@ pub trait SchemaRegistryClient: Send + Sync {
         &self,
         subject: &str,
         unregistered: &UnregisteredSchema,
-    ) -> Result<Schema, SchemaRegistryError>;
-
-    // TODO: add stuff to register schema
+    ) -> Result<u32, SchemaRegistryError>;
 }

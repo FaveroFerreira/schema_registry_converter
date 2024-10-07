@@ -52,21 +52,23 @@ impl FromStr for SchemaType {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StringSchema {
     pub schema: Cow<'static, str>,
+    pub references: Option<Vec<SchemaReference>>,
     #[serde(default)]
     pub schema_type: SchemaType,
 }
 
-#[derive(Debug, Clone, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Schema {
     pub id: u32,
     #[serde(default)]
     pub schema_type: SchemaType,
     pub schema: Cow<'static, str>,
+    pub references: Option<Vec<SchemaReference>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -78,15 +80,16 @@ pub struct Subject {
     #[serde(default)]
     pub schema_type: SchemaType,
     pub schema: Cow<'static, str>,
+    pub references: Option<Vec<SchemaReference>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SchemaReference {
     pub name: String,
     pub subject: String,
     pub version: u32,
-    pub references: Vec<SchemaReference>,
+    pub references: Option<Vec<SchemaReference>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

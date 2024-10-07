@@ -1,8 +1,0 @@
-syntax = "proto3";
-
-package example;
-
-message AccountCreatedMetadata {
-  string tenant = 1;
-  string source = 2;
-}

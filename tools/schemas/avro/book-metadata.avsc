@@ -1,0 +1,15 @@
+{
+  "namespace": "com.github.schemaregistryconverter.avro.schema",
+  "type": "record",
+  "name": "BookMetadata",
+  "fields": [
+    {
+      "name": "language",
+      "type": {
+        "name": "Language",
+        "type": "enum",
+        "symbols": ["pt_br", "en_us", "es_es"]
+      }
+    }
+  ]
+}
