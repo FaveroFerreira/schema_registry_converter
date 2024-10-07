@@ -4,8 +4,8 @@ use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 
 use schema_registry_client::SchemaRegistryClient;
-use schema_registry_serde::SchemaRegistryDeserializer;
 use schema_registry_serde::extract_id_and_payload;
+use schema_registry_serde::SchemaRegistryDeserializer;
 
 use crate::error::JsonDeserializationError;
 

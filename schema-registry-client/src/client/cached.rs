@@ -133,7 +133,7 @@ impl SchemaRegistryClient for CachedSchemaRegistryClient {
             id: subject.id,
             schema_type: subject.schema_type,
             schema: subject.schema,
-            references: subject.references
+            references: subject.references,
         })
     }
 
@@ -246,13 +246,11 @@ async fn parse_response<T: DeserializeOwned>(
                 })
             }
         },
-        _ => {
-            Err(HttpCallError::UpstreamError {
-                url: host,
-                status: status.as_u16(),
-                body: String::from_utf8_lossy(&bytes).to_string(),
-            })
-        }
+        _ => Err(HttpCallError::UpstreamError {
+            url: host,
+            status: status.as_u16(),
+            body: String::from_utf8_lossy(&bytes).to_string(),
+        }),
     }
 }
 

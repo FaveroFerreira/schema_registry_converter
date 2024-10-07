@@ -5,7 +5,10 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
-use schema_registry_converter::{CachedSchemaRegistryClient, SchemaReference, SchemaRegistryClient, SchemaType, UnregisteredSchema, Version};
+use schema_registry_converter::{
+    CachedSchemaRegistryClient, SchemaReference, SchemaRegistryClient, SchemaType,
+    UnregisteredSchema, Version,
+};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -28,7 +31,9 @@ async fn avro_key(sr: &CachedSchemaRegistryClient) -> anyhow::Result<()> {
 
     let _ = sr.register_schema("test.avro.book-key", &metadata).await?;
 
-    let schema = sr.get_schema_by_subject("test.avro.book-key", Version::Latest).await?;
+    let schema = sr
+        .get_schema_by_subject("test.avro.book-key", Version::Latest)
+        .await?;
 
     info!("Book Key: {:?}", schema);
 
@@ -40,21 +45,25 @@ async fn avro_value(sr: &CachedSchemaRegistryClient) -> anyhow::Result<()> {
     let author_content = fs::read_to_string("./tools/schemas/avro/author-value.avsc")?;
     let author = UnregisteredSchema::schema(&author_content).schema_type(SchemaType::Avro);
 
-    let _ = sr.register_schema("test.avro.author-value", &author).await?;
+    let _ = sr
+        .register_schema("test.avro.author-value", &author)
+        .await?;
 
     let book_content = fs::read_to_string("./tools/schemas/avro/book-value.avsc")?;
-    let book = UnregisteredSchema::schema(&book_content).schema_type(SchemaType::Avro).references(
-        vec![SchemaReference {
+    let book = UnregisteredSchema::schema(&book_content)
+        .schema_type(SchemaType::Avro)
+        .references(vec![SchemaReference {
             name: String::from("Author"),
             subject: String::from("test.avro.author-value"),
             version: 1,
             references: None,
-        }]
-    );
+        }]);
 
     let _ = sr.register_schema("test.avro.book-value", &book).await?;
 
-    let schema = sr.get_schema_by_subject("test.avro.book-value", Version::Latest).await?;
+    let schema = sr
+        .get_schema_by_subject("test.avro.book-value", Version::Latest)
+        .await?;
 
     info!("Book Value: {:?}", schema);
 

@@ -6,8 +6,8 @@ use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 
 use schema_registry_client::{Schema, SchemaRegistryClient, Version};
-use schema_registry_serde::SchemaRegistryDeserializer;
 use schema_registry_serde::extract_id_and_payload;
+use schema_registry_serde::SchemaRegistryDeserializer;
 
 use crate::error::AvroDeserializationError;
 
@@ -54,15 +54,22 @@ impl SchemaRegistryDeserializer for SchemaRegistryAvroDeserializer {
 
         schemas.push(schema);
 
-        let input = schemas.iter().map(|s| s.schema.as_ref()).collect::<Vec<&str>>();
+        let input = schemas
+            .iter()
+            .map(|s| s.schema.as_ref())
+            .collect::<Vec<&str>>();
+
         let mut parsed_schemas = AvroSchema::parse_list(&input)?;
 
         let mut reader = Cursor::new(extracted.payload);
 
-        let writer_schema = parsed_schemas.pop().ok_or(AvroDeserializationError::SchemaNotFound)?;
+        let writer_schema = parsed_schemas
+            .pop()
+            .ok_or(AvroDeserializationError::SchemaNotFound)?;
         let schemata = parsed_schemas.iter().map(|s| s).collect();
 
-        let avro_value = apache_avro::from_avro_datum_schemata(&writer_schema, schemata, &mut reader, None)?;
+        let avro_value =
+            apache_avro::from_avro_datum_schemata(&writer_schema, schemata, &mut reader, None)?;
 
         let t = apache_avro::from_value(&avro_value)?;
 

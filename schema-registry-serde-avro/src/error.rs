@@ -10,6 +10,9 @@ pub enum AvroSerializationError {
 
     #[error("Avro error: {0}")]
     Avro(#[from] apache_avro::Error),
+
+    #[error("Schema not found")]
+    SchemaNotFound,
 }
 
 #[derive(Debug, ThisError)]

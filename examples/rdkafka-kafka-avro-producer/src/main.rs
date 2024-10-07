@@ -25,27 +25,28 @@ async fn main() -> anyhow::Result<()> {
     let ser = create_serializer()?;
     let producer = create_producer()?;
 
-    let topic = "avro.account-created";
+    let topic = "test.avro.book";
     let strategy = SubjectNameStrategy::TopicName(&topic);
 
     for i in 0..10 {
-        let metadata = ExampleAccountCreatedMetadata {
-            tenant: "br".to_string(),
-            source: "c2c".to_string(),
+        let metadata = BookMetadata {
+            language: Language::EnUs,
         };
 
-        let account_created = ExampleAccountCreated {
-            username: "john.doe".to_string(),
-            password: "12345".to_string(),
-            nickname: if i % 2 == 0 {
-                Some("John Doe".to_string())
-            } else {
-                None
-            },
+        let author = Author {
+            id: 1,
+            name: "Franz Kafka".to_string(),
+            email: None,
+        };
+
+        let book = Book {
+            id: i,
+            title: "The Trial".to_string(),
+            author,
         };
 
         let key = ser.serialize_key(strategy, &metadata);
-        let value = ser.serialize_value(strategy, &account_created);
+        let value = ser.serialize_value(strategy, &book);
 
         let pair = try_join(key, value).await?;
 
@@ -56,23 +57,38 @@ async fn main() -> anyhow::Result<()> {
             .await
             .map_err(|(e, _)| e)?;
 
-        info!("Sent account created event")
+        info!("Sent book event")
     }
 
     Ok(())
 }
 
 #[derive(Debug, Serialize)]
-struct ExampleAccountCreatedMetadata {
-    tenant: String,
-    source: String,
+#[serde(rename_all = "snake_case")]
+pub enum Language {
+    PtBr,
+    EnUs,
+    EsEs,
 }
 
 #[derive(Debug, Serialize)]
-struct ExampleAccountCreated {
-    username: String,
-    password: String,
-    nickname: Option<String>,
+pub struct BookMetadata {
+    pub language: Language,
+}
+
+#[derive(Debug, Serialize)]
+pub struct Book {
+    pub id: i32,
+    pub title: String,
+    pub author: Author,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Author {
+    pub id: i32,
+    pub name: String,
+    pub email: Option<String>,
 }
 
 fn create_producer() -> anyhow::Result<FutureProducer> {
