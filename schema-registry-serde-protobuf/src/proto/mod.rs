@@ -1,16 +1,21 @@
+use integer_encoding::VarInt;
+use schema_registry_serde::insert_magic_byte_and_id;
+
 use crate::error::ProtoSerializationError;
 
-use self::resolver::{IndexResolver, MessageResolver};
+use self::resolver::IndexResolver;
 
+pub mod compiler;
 pub mod resolver;
 pub mod types;
 
 pub(crate) fn to_bytes(
-    encode_context: &EncodeContext,
+    id: u32,
+    resolver: &IndexResolver,
     bytes: &[u8],
     full_name: &str,
 ) -> Result<Vec<u8>, ProtoSerializationError> {
-    let mut index_bytes = match encode_context.resolver.find_index(full_name) {
+    let mut index_bytes = match resolver.find_index(full_name) {
         Some(v) if v.len() == 1 && v[0] == 0i32 => vec![0u8],
         Some(v) => {
             let mut result = (v.len() as i32).encode_var_vec();
@@ -20,38 +25,28 @@ pub(crate) fn to_bytes(
             result
         }
         None => {
-            return Err(SRCError::non_retryable_without_cause(&format!(
-                "could not find name {} with resolver",
-                full_name
-            )))
+            return Err(ProtoSerializationError::UnresolvableMessageType(
+                full_name.to_string(),
+            ))
         }
     };
     index_bytes.extend(bytes);
-    Ok(get_payload(encode_context.id, index_bytes))
+    Ok(insert_magic_byte_and_id(id, &index_bytes))
 }
 
 pub(crate) fn to_bytes_single_message(
-    encode_context: &EncodeContext,
+    id: u32,
+    resolver: &IndexResolver,
     bytes: &[u8],
 ) -> Result<Vec<u8>, ProtoSerializationError> {
-    if encode_context.resolver.is_single_message() {
+    if resolver.is_single_message() {
         let mut index_bytes = vec![0u8];
         index_bytes.extend(bytes);
-        Ok(get_payload(encode_context.id, index_bytes))
+        Ok(insert_magic_byte_and_id(id, &index_bytes))
     } else {
-        Err(SRCError::new(
-            "Schema was no single message schema",
-            None,
-            false,
+        Err(ProtoSerializationError::DynamicMessage(
+            "Schema was not a single message schema".to_string(),
         ))
-    }
-}
-
-pub(crate) fn to_decode_context(registered_schema: RegisteredSchema) -> DecodeContext {
-    let schema = String::from(&registered_schema.schema);
-    DecodeContext {
-        schema: registered_schema,
-        resolver: MessageResolver::new(&schema),
     }
 }
 
@@ -61,8 +56,11 @@ pub(crate) struct EncodeContext {
     pub(crate) resolver: IndexResolver,
 }
 
-#[derive(Debug, Clone)]
-pub(crate) struct DecodeContext {
-    pub(crate) schema: RegisteredSchema,
-    pub(crate) resolver: MessageResolver,
+impl EncodeContext {
+    pub(crate) fn new(id: u32, schema: &str) -> Self {
+        Self {
+            id,
+            resolver: IndexResolver::new(schema),
+        }
+    }
 }

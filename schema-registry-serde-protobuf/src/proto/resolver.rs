@@ -57,6 +57,15 @@ impl IndexResolver {
         self.map.get(name).map(|e| e.value().clone())
     }
 
+    pub fn find_index_name(&self, index: &[i32]) -> Option<String> {
+        for entry in self.map.iter() {
+            if entry.value().as_slice() == index {
+                return Some(entry.key().clone());
+            }
+        }
+        None
+    }
+
     pub fn is_single_message(&self) -> bool {
         self.map.len() == 1
     }
@@ -71,22 +80,22 @@ pub struct ResolverHelper {
 
 #[derive(Logos, Debug, PartialEq)]
 enum Token {
-    #[regex(r"package\s+[a-zA-z0-9\\.\\_]+;")]
+    #[regex(r"package\s+[a-zA-z0-9\\.\\_]+;", priority = 10)]
     Package,
 
-    #[regex(r"message\s+[a-zA-z0-9\\_]+")]
+    #[regex(r"message\s+[a-zA-z0-9\\_]+", priority = 10)]
     Message,
 
-    #[regex(r#"import\s+"[a-zA-z0-9\\.\\_/]+";"#)]
+    #[regex(r#"import\s+"[a-zA-z0-9\\.\\_/]+";"#, priority = 10)]
     Import,
 
-    #[token("{")]
+    #[token("{", priority = 5)]
     Open,
 
-    #[token("}")]
+    #[token("}", priority = 5)]
     Close,
 
-    #[regex(r"\S")]
+    #[regex(r"\S", priority = 1)]
     #[regex(r"[\s]+", logos::skip)]
     Ignorable,
 }
