@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package com.github.schemaregistryconverter.proto.schema;
+
+enum Language {
+  PT_BR = 0;
+  EN_US = 1;
+  ES_ES = 2;
+}
+
+message BookMetadata {
+  Language language = 1;
+}

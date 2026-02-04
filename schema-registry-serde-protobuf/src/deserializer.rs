@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use prost_reflect::DynamicMessage;
+use prost_reflect::{DynamicMessage, SerializeOptions};
 use serde::de::DeserializeOwned;
 
 use schema_registry_client::{Schema, SchemaRegistryClient, Version};
@@ -126,9 +126,16 @@ impl SchemaRegistryDeserializer for SchemaRegistryProtoDeserializer {
         let dynamic_message = DynamicMessage::decode(descriptor, proto_data.as_slice())
             .map_err(ProtoDeserializationError::ProtobufDecode)?;
 
-        // 8. Convert DynamicMessage to serde_json::Value then to T
-        let json_value = serde_json::to_value(&dynamic_message)?;
-        let result: T = serde_json::from_value(json_value)?;
+        // 8. Convert DynamicMessage to T using serde
+        // Use SerializeOptions to emit int64/uint64 as numbers instead of strings
+        let options = SerializeOptions::new().stringify_64_bit_integers(false);
+        let mut json_serializer = serde_json::Serializer::new(Vec::new());
+        dynamic_message
+            .serialize_with_options(&mut json_serializer, &options)
+            .map_err(|e| ProtoDeserializationError::SchemaParse(e.to_string()))?;
+
+        let json_bytes = json_serializer.into_inner();
+        let result: T = serde_json::from_slice(&json_bytes)?;
 
         Ok(result)
     }
