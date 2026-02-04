@@ -434,13 +434,12 @@ mod tests {
 
         let client = CachedSchemaRegistryClient::from_conf(config).unwrap();
 
-        let schema = client
+        let schema_id = client
             .register_schema("heartbeat", &unregistered)
             .await
             .unwrap();
 
-        assert_eq!(schema.schema_type, SchemaType::Avro);
-        assert_eq!(schema.schema, r#"{"type": "string"}"#);
+        assert_eq!(schema_id, 1);
     }
 
     #[tokio::test]
@@ -467,13 +466,12 @@ mod tests {
 
         let client = CachedSchemaRegistryClient::from_conf(config).unwrap();
 
-        let schema = client
+        let schema_id = client
             .register_schema("heartbeat", &unregistered)
             .await
             .unwrap();
 
-        assert_eq!(schema.schema_type, SchemaType::Avro);
-        assert_eq!(schema.schema, r#"{"type": "string"}"#);
+        assert_eq!(schema_id, 1);
     }
 
     #[tokio::test]
