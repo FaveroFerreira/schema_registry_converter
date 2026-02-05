@@ -9,18 +9,18 @@ workspace = true
 [dependencies]
 serde_json = "1.0"
 futures = "0.3"
-thiserror = "1.0"
+thiserror = "2.0"
 async-trait = "0.1"
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.13", features = ["json"] }
 base64 = "0.22"
 serde = { version = "1.0", features = ["derive"] }
 tracing = "0.1"
-dashmap = "5.5"
+dashmap = "6.1"
 
 [dev-dependencies]
 anyhow = "1.0"
-bytes = "1.5"
-http = "0.2"
+bytes = "1.11"
+http = "1.4"
 tokio = { version = "1", features = ["full"] }
-factori = "1"
+factori = "1.1"
 wiremock = "0.6"

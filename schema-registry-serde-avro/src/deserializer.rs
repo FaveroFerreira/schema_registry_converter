@@ -66,7 +66,7 @@ impl SchemaRegistryDeserializer for SchemaRegistryAvroDeserializer {
         let writer_schema = parsed_schemas
             .pop()
             .ok_or(AvroDeserializationError::SchemaNotFound)?;
-        let schemata = parsed_schemas.iter().map(|s| s).collect();
+        let schemata = parsed_schemas.iter().collect();
 
         let avro_value =
             apache_avro::from_avro_datum_schemata(&writer_schema, schemata, &mut reader, None)?;

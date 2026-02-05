@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 use std::error::Error as StdError;
 
-use jsonschema::paths::PathChunk;
 use jsonschema::{ErrorIterator, ValidationError};
+use jsonschema::paths::LocationSegment;
 use serde_json::Value;
 use thiserror::Error as ThisError;
 
@@ -62,22 +62,31 @@ impl From<ErrorIterator<'_>> for JsonSerializationError {
 
 impl From<ValidationError<'_>> for SchemaValidationError {
     fn from(error: ValidationError<'_>) -> Self {
-        let actual_type = match *error.instance {
-            Value::Null => "null",
-            Value::Bool(_) => "boolean",
-            Value::Number(_) => "number",
-            Value::String(_) => "string",
-            Value::Array(_) => "array",
-            Value::Object(_) => "object",
+        let actual_type = match error.instance() {
+            Cow::Borrowed(e) => match e {
+                Value::Null => "null",
+                Value::Bool(_) => "boolean",
+                Value::Number(_) => "number",
+                Value::String(_) => "string",
+                Value::Array(_) => "array",
+                Value::Object(_) => "object",
+            },
+            Cow::Owned(e) => match &e {
+                Value::Null => "null",
+                Value::Bool(_) => "boolean",
+                Value::Number(_) => "number",
+                Value::String(_) => "string",
+                Value::Array(_) => "array",
+                Value::Object(_) => "object",
+            }
         };
-        let expected_type = format!("{:?}", error.kind);
+        let expected_type = format!("{:?}", error.kind());
         let path = error
-            .schema_path
+            .schema_path()
             .iter()
             .map(|s| match s {
-                PathChunk::Property(p) => p.to_string(),
-                PathChunk::Index(i) => i.to_string(),
-                PathChunk::Keyword(k) => k.to_string(),
+                LocationSegment::Property(property) => property.to_string(),
+                LocationSegment::Index(index) => index.to_string(),
             })
             .collect::<Vec<_>>()
             .join(".");

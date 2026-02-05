@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use jsonschema::JSONSchema;
 use serde::Serialize;
 
 use schema_registry_client::{SchemaRegistryClient, Version};
@@ -43,14 +42,11 @@ impl SchemaRegistrySerializer for SchemaRegistryJsonSerializer {
             .await?;
 
         let parsed_schema = serde_json::from_str(&schema.schema)?;
-        let compiled_schema = JSONSchema::compile(&parsed_schema)?;
-
         let data = serde_json::to_value(data)?;
-        let bytes = serde_json::to_vec(&data)?;
 
-        compiled_schema
-            .validate(&data)
-            .map_err(JsonSerializationError::from)?;
+        jsonschema::validate(&parsed_schema, &data).map_err(JsonSerializationError::from)?;
+
+        let bytes = serde_json::to_vec(&data)?;
 
         Ok(insert_magic_byte_and_id(schema.id, &bytes))
     }
@@ -71,14 +67,11 @@ impl SchemaRegistrySerializer for SchemaRegistryJsonSerializer {
             .await?;
 
         let parsed_schema = serde_json::from_str(&schema.schema)?;
-        let compiled_schema = JSONSchema::compile(&parsed_schema)?;
-
         let data = serde_json::to_value(data)?;
-        let bytes = serde_json::to_vec(&data)?;
 
-        compiled_schema
-            .validate(&data)
-            .map_err(JsonSerializationError::from)?;
+        jsonschema::validate(&parsed_schema, &data).map_err(JsonSerializationError::from)?;
+
+        let bytes = serde_json::to_vec(&data)?;
 
         Ok(insert_magic_byte_and_id(schema.id, &bytes))
     }

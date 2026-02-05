@@ -69,7 +69,7 @@ impl SchemaRegistrySerializer for SchemaRegistryAvroSerializer {
         let write_schema = parsed_schemas
             .pop()
             .ok_or(AvroSerializationError::SchemaNotFound)?;
-        let schemata = parsed_schemas.iter().map(|s| s).collect();
+        let schemata = parsed_schemas.iter().collect();
         let avro_value = apache_avro::to_value(data)?;
 
         let data = apache_avro::to_avro_datum_schemata(&write_schema, schemata, avro_value)?;

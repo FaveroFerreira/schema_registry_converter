@@ -9,4 +9,3 @@ workspace = true
 [dependencies]
 async-trait = "0.1"
 serde = "1.0"
-
