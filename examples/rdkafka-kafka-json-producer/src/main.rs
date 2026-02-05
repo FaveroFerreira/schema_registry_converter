@@ -1,3 +1,4 @@
+use std::fs;
 use std::sync::Arc;
 
 use futures::future::try_join;
@@ -12,8 +13,11 @@ use tracing_subscriber::EnvFilter;
 
 use schema_registry_converter::json::SchemaRegistryJsonSerializer;
 use schema_registry_converter::{
-    CachedSchemaRegistryClient, SchemaRegistrySerializer, SubjectNameStrategy,
+    CachedSchemaRegistryClient, SchemaReference, SchemaRegistryClient, SchemaRegistrySerializer,
+    SchemaType, SubjectNameStrategy, UnregisteredSchema,
 };
+
+const TOPIC: &str = "test.json.book2";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -22,62 +26,116 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let ser = create_serializer()?;
+    let sr = Arc::new(CachedSchemaRegistryClient::from_url(
+        "http://localhost:8081",
+    )?);
+
+    // Register schemas before producing
+    register_schemas(&sr).await?;
+
+    let ser = SchemaRegistryJsonSerializer::new(sr);
     let producer = create_producer()?;
 
-    let topic = "json.account-created";
-    let strategy = SubjectNameStrategy::TopicName(&topic);
+    let strategy = SubjectNameStrategy::TopicName(TOPIC);
 
     for i in 0..10 {
-        let metadata = ExampleAccountCreatedMetadata {
-            tenant: "br".to_string(),
-            source: "c2c".to_string(),
+        let metadata = BookMetadata {
+            language: Language::EnUs,
         };
 
-        let account_created = ExampleAccountCreated {
-            username: "john.doe".to_string(),
-            password: "12345".to_string(),
-            nickname: if i % 2 == 0 {
-                Some("John Doe".to_string())
-            } else {
-                None
-            },
+        let author = Author {
+            id: 1,
+            name: "Franz Kafka".to_string(),
+            email: None,
         };
 
-        println!(
-            "sending account created event, metadata: {:?}, account_created: {:?}",
-            metadata, account_created
-        );
+        let book = Book {
+            id: i,
+            title: "The Trial".to_string(),
+            author,
+        };
 
         let key = ser.serialize_key(strategy, &metadata);
-        let value = ser.serialize_value(strategy, &account_created);
+        let value = ser.serialize_value(strategy, &book);
 
         let pair = try_join(key, value).await?;
 
-        let message = FutureRecord::to(topic).key(&pair.0).payload(&pair.1);
+        let message = FutureRecord::to(TOPIC).key(&pair.0).payload(&pair.1);
 
         producer
             .send(message, Timeout::Never)
             .await
             .map_err(|(e, _)| e)?;
 
-        info!("Sent account created event")
+        info!("Sent book event #{}", i);
     }
+
+    info!("Finished sending 10 book events");
+
+    Ok(())
+}
+
+async fn register_schemas(sr: &CachedSchemaRegistryClient) -> anyhow::Result<()> {
+    // Register key schema (BookMetadata)
+    let metadata_json = fs::read_to_string("./tools/schemas/json/book-metadata.json")?;
+    let metadata_schema = UnregisteredSchema::schema(&metadata_json).schema_type(SchemaType::Json);
+
+    sr.register_schema(&format!("{}-key", TOPIC), &metadata_schema)
+        .await?;
+    info!("Registered key schema: {}-key", TOPIC);
+
+    // Register Author schema first (it's a dependency)
+    let author_json = fs::read_to_string("./tools/schemas/json/author-value.json")?;
+    let author_schema = UnregisteredSchema::schema(&author_json).schema_type(SchemaType::Json);
+
+    sr.register_schema("test.json.author-value", &author_schema)
+        .await?;
+    info!("Registered dependency schema: test.json.author-value");
+
+    // Register value schema (Book) with reference to Author
+    let book_json = fs::read_to_string("./tools/schemas/json/book-value.json")?;
+    let book_schema = UnregisteredSchema::schema(&book_json)
+        .schema_type(SchemaType::Json)
+        .references(vec![SchemaReference {
+            name: String::from("author-value.json"),
+            subject: String::from("test.json.author-value"),
+            version: 1,
+            references: None,
+        }]);
+
+    sr.register_schema(&format!("{}-value", TOPIC), &book_schema)
+        .await?;
+    info!("Registered value schema: {}-value", TOPIC);
 
     Ok(())
 }
 
 #[derive(Debug, Serialize)]
-struct ExampleAccountCreatedMetadata {
-    tenant: String,
-    source: String,
+#[serde(rename_all = "snake_case")]
+pub enum Language {
+    PtBr,
+    EnUs,
+    EsEs,
 }
 
 #[derive(Debug, Serialize)]
-struct ExampleAccountCreated {
-    username: String,
-    password: String,
-    nickname: Option<String>,
+pub struct BookMetadata {
+    pub language: Language,
+}
+
+#[derive(Debug, Serialize)]
+pub struct Book {
+    pub id: i32,
+    pub title: String,
+    pub author: Author,
+}
+
+#[derive(Debug, Serialize)]
+pub struct Author {
+    pub id: i32,
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
 }
 
 fn create_producer() -> anyhow::Result<FutureProducer> {
@@ -86,12 +144,4 @@ fn create_producer() -> anyhow::Result<FutureProducer> {
         .create::<FutureProducer>()?;
 
     Ok(producer)
-}
-
-fn create_serializer() -> anyhow::Result<SchemaRegistryJsonSerializer> {
-    let sr = Arc::new(CachedSchemaRegistryClient::from_url(
-        "http://localhost:8081",
-    )?);
-
-    Ok(SchemaRegistryJsonSerializer::new(sr))
 }

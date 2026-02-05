@@ -1,3 +1,4 @@
+use std::fs;
 use std::sync::Arc;
 
 use futures::future::try_join;
@@ -12,8 +13,11 @@ use tracing_subscriber::EnvFilter;
 
 use schema_registry_converter::avro::SchemaRegistryAvroSerializer;
 use schema_registry_converter::{
-    CachedSchemaRegistryClient, SchemaRegistrySerializer, SubjectNameStrategy,
+    CachedSchemaRegistryClient, SchemaReference, SchemaRegistryClient, SchemaRegistrySerializer,
+    SchemaType, SubjectNameStrategy, UnregisteredSchema,
 };
+
+const TOPIC: &str = "test.avro.book";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -22,11 +26,17 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let ser = create_serializer()?;
+    let sr = Arc::new(CachedSchemaRegistryClient::from_url(
+        "http://localhost:8081",
+    )?);
+
+    // Register schemas before producing
+    register_schemas(&sr).await?;
+
+    let ser = SchemaRegistryAvroSerializer::new(sr);
     let producer = create_producer()?;
 
-    let topic = "test.avro.book";
-    let strategy = SubjectNameStrategy::TopicName(&topic);
+    let strategy = SubjectNameStrategy::TopicName(TOPIC);
 
     for i in 0..10 {
         let metadata = BookMetadata {
@@ -50,15 +60,52 @@ async fn main() -> anyhow::Result<()> {
 
         let pair = try_join(key, value).await?;
 
-        let message = FutureRecord::to(topic).key(&pair.0).payload(&pair.1);
+        let message = FutureRecord::to(TOPIC).key(&pair.0).payload(&pair.1);
 
         producer
             .send(message, Timeout::Never)
             .await
             .map_err(|(e, _)| e)?;
 
-        info!("Sent book event")
+        info!("Sent book event #{}", i);
     }
+
+    info!("Finished sending 10 book events");
+
+    Ok(())
+}
+
+async fn register_schemas(sr: &CachedSchemaRegistryClient) -> anyhow::Result<()> {
+    // Register key schema (BookMetadata)
+    let metadata_avro = fs::read_to_string("./tools/schemas/avro/book-metadata.avsc")?;
+    let metadata_schema = UnregisteredSchema::schema(&metadata_avro).schema_type(SchemaType::Avro);
+
+    sr.register_schema(&format!("{}-key", TOPIC), &metadata_schema)
+        .await?;
+    info!("Registered key schema: {}-key", TOPIC);
+
+    // Register Author schema first (it's a dependency)
+    let author_avro = fs::read_to_string("./tools/schemas/avro/author-value.avsc")?;
+    let author_schema = UnregisteredSchema::schema(&author_avro).schema_type(SchemaType::Avro);
+
+    sr.register_schema("test.avro.author-value", &author_schema)
+        .await?;
+    info!("Registered dependency schema: test.avro.author-value");
+
+    // Register value schema (Book) with reference to Author
+    let book_avro = fs::read_to_string("./tools/schemas/avro/book-value.avsc")?;
+    let book_schema = UnregisteredSchema::schema(&book_avro)
+        .schema_type(SchemaType::Avro)
+        .references(vec![SchemaReference {
+            name: String::from("com.github.schemaregistryconverter.avro.schema.Author"),
+            subject: String::from("test.avro.author-value"),
+            version: 1,
+            references: None,
+        }]);
+
+    sr.register_schema(&format!("{}-value", TOPIC), &book_schema)
+        .await?;
+    info!("Registered value schema: {}-value", TOPIC);
 
     Ok(())
 }
@@ -97,12 +144,4 @@ fn create_producer() -> anyhow::Result<FutureProducer> {
         .create::<FutureProducer>()?;
 
     Ok(producer)
-}
-
-fn create_serializer() -> anyhow::Result<SchemaRegistryAvroSerializer> {
-    let sr = Arc::new(CachedSchemaRegistryClient::from_url(
-        "http://localhost:8081",
-    )?);
-
-    Ok(SchemaRegistryAvroSerializer::new(sr))
 }

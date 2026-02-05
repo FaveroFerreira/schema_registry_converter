@@ -13,6 +13,8 @@ use tracing_subscriber::EnvFilter;
 use schema_registry_converter::json::SchemaRegistryJsonDeserializer;
 use schema_registry_converter::{CachedSchemaRegistryClient, SchemaRegistryDeserializer};
 
+const TOPIC: &str = "test.json.book2";
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::registry()
@@ -20,10 +22,10 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let de = crate_deserializer()?;
+    let de = create_deserializer()?;
 
-    let consumer = crate_consumer()?;
-    consumer.subscribe(&["json.account-created"])?;
+    let consumer = create_consumer()?;
+    consumer.subscribe(&[TOPIC])?;
 
     let mut stream = consumer.stream();
 
@@ -33,7 +35,7 @@ async fn main() -> anyhow::Result<()> {
 
         match try_join(key, value).await {
             Ok(pair) => {
-                on_account_created(pair);
+                handle_message(pair);
             }
             Err(e) => {
                 error!("Failed to deserialize message: {:?}", e);
@@ -46,39 +48,52 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[instrument(name = "on_account_created", skip(pair))]
-fn on_account_created(pair: (ExampleAccountCreatedMetadata, ExampleAccountCreated)) {
-    info!("Received account created event");
+#[instrument(name = "on_book_event", skip(pair))]
+fn handle_message(pair: (BookMetadata, Book)) {
+    info!("Received book event");
 
     info!("Metadata: {:?}", pair.0);
     info!("Value: {:?}", pair.1);
 }
 
 #[derive(Debug, Deserialize)]
-#[allow(unused)]
-struct ExampleAccountCreatedMetadata {
-    tenant: String,
-    source: String,
+#[serde(rename_all = "snake_case")]
+pub enum Language {
+    PtBr,
+    EnUs,
+    EsEs,
 }
 
 #[derive(Debug, Deserialize)]
-#[allow(unused)]
-struct ExampleAccountCreated {
-    username: String,
-    password: String,
-    nickname: Option<String>,
+pub struct BookMetadata {
+    pub language: Language,
 }
 
-fn crate_consumer() -> anyhow::Result<StreamConsumer> {
+#[derive(Debug, Deserialize)]
+pub struct Book {
+    pub id: i32,
+    pub title: String,
+    pub author: Author,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Author {
+    pub id: i32,
+    pub name: String,
+    pub email: Option<String>,
+}
+
+fn create_consumer() -> anyhow::Result<StreamConsumer> {
     let consumer = ClientConfig::new()
-        .set("group.id", "example-rdkafka-kafka-json-consumer")
         .set("bootstrap.servers", "localhost:9092")
+        .set("group.id", "example-rdkafka-kafka-json-consumer")
+        .set("auto.offset.reset", "beginning")
         .create::<StreamConsumer>()?;
 
     Ok(consumer)
 }
 
-fn crate_deserializer() -> anyhow::Result<SchemaRegistryJsonDeserializer> {
+fn create_deserializer() -> anyhow::Result<SchemaRegistryJsonDeserializer> {
     let sr = Arc::new(CachedSchemaRegistryClient::from_url(
         "http://localhost:8081",
     )?);
